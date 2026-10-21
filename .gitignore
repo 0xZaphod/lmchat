@@ -1,0 +1,31 @@
+*.iml
+.gradle
+/local.properties
+/keystore.properties
+*.jks
+*.keystore
+/.idea
+.DS_Store
+/build
+/app/build
+/captures
+.externalNativeBuild
+.cxx
+local.properties
+.kotlin
+.pi
+
+# Local Pi tooling; the Android app is built with Gradle.
+/node_modules/
+/package.json
+/package-lock.json
+
+# Local secrets and generated release files
+.env
+.env.*
+!.env.example
+*.p12
+*.pfx
+*.apk
+*.aab
+*.bundle

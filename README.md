@@ -29,9 +29,15 @@ In Settings, choose a server type, enter its address, or scan a subnet for compa
 
 ## Install
 
-Requires **Android 8.0 (API 26) or newer**. Download `LMChat-<version>.apk` from this repository's GitHub Releases when available, open it on your phone, and allow installation from your browser or file manager when Android asks. Use APKs signed with the same key to update an existing installation.
+Requires **Android 8.0 (API 26) or newer**. Download `LMChat-<version>.apk` from [GitHub Releases](https://github.com/0xZaphod/lmchat/releases), open it on your phone, and allow installation from your browser or file manager when Android asks. Use APKs signed with the same key to update an existing installation.
 
 The app connects to a server you run separately; it does not run models on the phone.
+
+## Releases
+
+Download signed APKs from the [Releases page](https://github.com/0xZaphod/lmchat/releases). Each release includes its version, release notes, and an APK for manual installation. Choose the release APK for normal use; GitHub Actions artifacts are debug builds.
+
+To update, install the newer release APK over the existing app. Android preserves app data when the application ID and signing key match and the version code allows the update.
 
 ## Build
 

@@ -123,3 +123,9 @@ app/src/main/java/dev/lmchat/
 - **Scan finds nothing** — confirm both devices share a Wi-Fi SSID; some routers isolate phones from LAN clients (AP isolation). Enter the host manually in that case.
 - **Connection refused** — LM Studio server not started, or firewall is blocking it (allow `lms` on your LAN).
 - **Model won't load** — the model must be loaded in LM Studio before the server will serve it.
+
+## License
+
+LMChat is source-available under the [PolyForm Noncommercial License 1.0.0](LICENSE). Use, modification, and redistribution are permitted for the purposes specified in the license, including noncommercial use. Commercial use is not granted by this license.
+
+Third-party dependencies retain their respective licenses.

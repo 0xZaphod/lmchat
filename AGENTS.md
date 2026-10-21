@@ -6,6 +6,7 @@ LMChat is a Kotlin Android app built with Jetpack Compose and Material 3. Keep t
 
 - Use Java 17 and Android SDK platform 35. Use the checked-in Gradle wrapper; dependency versions live in `gradle/libs.versions.toml`.
 - Run `./gradlew :app:testDebugUnitTest assembleDebug` for protocol, metadata, context tracking, and compilation checks.
+- Run `./gradlew connectedDebugAndroidTest` on a device/emulator for document import and send regression tests.
 - Run `./gradlew assembleRelease` when changing release packaging. Release signing is optional for contributors; see README.md.
 - Report device testing separately from builds and unit tests. Never claim an APK was exercised on a device unless it was.
 
@@ -28,7 +29,7 @@ LMChat is a Kotlin Android app built with Jetpack Compose and Material 3. Keep t
 - Confirm image capability through server metadata, never model-name guesses. Unknown metadata must not prevent text chat.
 - Context limits use a positive local override first, then the running server configuration. Never substitute a model's training maximum. Local overrides must appear without waiting for a network lookup.
 - Camera capture uses FileProvider. Image/document work belongs off the main thread.
-- Preserve PDFBox resource exclusions and ProGuard rules. PDFBox 3 extraction uses `Loader.loadPDF` and `PDFTextStripper`.
+- Use the Android PDFBox port (`com.tom-roush:pdfbox-android`), initialized with `PDFBoxResourceLoader` in the Application. Extract text with `PDDocument.load` and `PDFTextStripper`. Desktop Apache PDFBox depends on missing `java.awt` classes and crashes on Android; JVM tests alone will not catch that. Preserve packaging exclusions and matching ProGuard rules.
 - The app permits HTTP for local servers. Preserve normal certificate verification for HTTPS.
 
 ## Repository hygiene

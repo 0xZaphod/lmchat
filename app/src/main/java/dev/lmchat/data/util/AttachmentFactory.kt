@@ -9,8 +9,8 @@ import dev.lmchat.domain.Attachment
 import dev.lmchat.domain.AttachmentKind
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import org.apache.pdfbox.Loader
-import org.apache.pdfbox.text.PDFTextStripper
+import com.tom_roush.pdfbox.pdmodel.PDDocument
+import com.tom_roush.pdfbox.text.PDFTextStripper
 import java.io.ByteArrayOutputStream
 import java.util.Base64
 
@@ -125,7 +125,7 @@ object AttachmentFactory {
 object DocumentExtractor {
 
     fun extractPdf(bytes: ByteArray): String? = try {
-        Loader.loadPDF(bytes).use { doc ->
+        PDDocument.load(bytes).use { doc ->
             PDFTextStripper().getText(doc).takeIf { it.isNotBlank() }
         }
     } catch (_: Exception) {

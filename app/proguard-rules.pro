@@ -1,7 +1,5 @@
-# Apache PDFBox (document text extraction)
--keep class org.apache.pdfbox.** { *; }
--keep class org.apache.fontbox.** { *; }
--dontwarn org.apache.pdfbox.**
--dontwarn org.apache.fontbox.**
--dontwarn org.apache.commons.logging.**
--keep class org.apache.commons.logging.** { *; }
+# Android PDFBox port (document text extraction)
+-keep class com.tom_roush.pdfbox.** { *; }
+-keep class com.tom_roush.fontbox.** { *; }
+-dontwarn com.tom_roush.pdfbox.**
+-dontwarn com.tom_roush.fontbox.**

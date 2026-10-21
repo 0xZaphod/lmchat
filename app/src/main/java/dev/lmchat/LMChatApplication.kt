@@ -2,6 +2,7 @@ package dev.lmchat
 
 import android.app.Application
 import android.content.Context
+import com.tom_roush.pdfbox.android.PDFBoxResourceLoader
 import dev.lmchat.data.local.AppDatabase
 import dev.lmchat.data.remote.LmStudioClient
 import dev.lmchat.data.repository.ChatRepository
@@ -36,6 +37,7 @@ class LMChatApplication : Application() {
 
     override fun onCreate() {
         super.onCreate()
+        PDFBoxResourceLoader.init(this)
         container = AppContainer(this)
         // Mark any streaming rows left over from a previous run as interrupted.
         container.applicationScope.launch {

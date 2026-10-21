@@ -85,12 +85,12 @@ Vision support is checked again when the model/server changes or the model list 
 
 Context limits come from the running configuration, never the model's training maximum. A model that loads on demand may report its context limit only after the first message. For servers that do not expose it, Settings has an optional per-server **context limit override**, in tokens. This only changes the display; it does not configure the server. Generic compatibility does not guarantee metadata availability or image support on every model.
 
-Protocol and metadata regression checks: `./gradlew testDebugUnitTest`.
+Protocol and metadata regression checks: `./gradlew testDebugUnitTest`. Document import and send regression tests run on a connected Android device/emulator with `./gradlew connectedDebugAndroidTest`.
 
 ### Notes
 
 - **Images** require a model that reports vision support. If the server omits capabilities, refresh the model list or choose its specific server type.
-- **Documents** are converted to plain text (PDF via PDFBox, others decoded as UTF-8) and appended to the prompt as fenced code blocks — large documents are truncated to ~120 KB of text.
+- **Documents** are converted to plain text (PDF via PDFBox-Android, others decoded as UTF-8) and appended to the prompt as fenced code blocks — large documents are truncated to ~120 KB of text.
 - **API key:** if you've set one in LM Studio, enter it in Settings or the per-chat server dialog.
 
 ## Project structure

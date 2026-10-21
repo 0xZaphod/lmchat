@@ -10,13 +10,6 @@ In Settings, choose a server type, enter its address, or scan a subnet for compa
 
 ![stack](https://img.shields.io/badge/Kotlin-Jetpack%20Compose-8AB4F8) ![material](https://img.shields.io/badge/Material-3-8AB4F8)
 
-## Screenshots
-
-<p>
-  <img src="docs/screenshots/chats.png" width="260" alt="LMChat conversation list in dark mode">
-  <img src="docs/screenshots/chat.png" width="260" alt="LMChat chat with text replies and context usage">
-</p>
-
 ## Features
 
 - **Streaming chat** — token-by-token SSE streaming through the OpenAI-compatible chat API

@@ -97,8 +97,12 @@ kotlin {
 
 dependencies {
     testImplementation("junit:junit:4.13.2")
-    androidTestImplementation("androidx.test:runner:1.6.2")
-    androidTestImplementation("androidx.test.ext:junit:1.2.1")
+    androidTestImplementation("androidx.test:runner:1.7.0")
+    androidTestImplementation("androidx.test.ext:junit:1.3.0")
+    androidTestImplementation(platform(libs.androidx.compose.bom))
+    androidTestImplementation("androidx.compose.ui:ui-test-junit4")
+    // Older Espresso uses a removed InputManager API on recent Android versions.
+    androidTestImplementation("androidx.test.espresso:espresso-core:3.7.0")
     androidTestImplementation("com.squareup.okhttp3:mockwebserver:4.12.0")
     testImplementation("com.squareup.okhttp3:mockwebserver:4.12.0")
     implementation(platform(libs.androidx.compose.bom))
@@ -127,6 +131,10 @@ dependencies {
 
     implementation(libs.coil.compose)
     implementation(libs.pdfbox)
+    implementation(libs.markwon.core)
+    implementation(libs.markwon.tables)
+    implementation(libs.markwon.strikethrough)
 
     debugImplementation(libs.androidx.ui.tooling)
+    debugImplementation("androidx.compose.ui:ui-test-manifest")
 }

@@ -17,12 +17,13 @@ LMChat is a Kotlin Android app built with Jetpack Compose and Material 3. Keep t
 - `data/remote`: OpenAI-compatible requests, SSE, and server-specific capability metadata.
 - `data/repository`: persistence, streaming lifecycle, settings, and context token tracking.
 - `data/scanner`: local IPv4 discovery.
-- `ui/screens`: Compose screens and ViewModels; `ui/theme`: the dark Material 3 theme.
+- `ui/screens`: Compose screens and ViewModels; `ui/components`: shared UI, including assistant Markdown; `ui/theme`: the dark Material 3 theme.
 - Manual dependency injection uses the top-level `dev.lmchat.AppContainer`. ViewModels expose factories; do not introduce Hilt without a reason.
 
 ## Behavior to preserve
 
 - Full HTTP(S) URLs own their scheme and port; bare hosts require the separate port. Use the shared endpoint helpers.
+- Render assistant Markdown only in the UI; retain original message text in storage and API history. Keep native text selectable, parsing off the main thread, and streaming updates conflated.
 - Keep request serialization separate from decoding: requests need `encodeDefaults = true` so `stream: true` reaches the server.
 - SSE uses an unlimited read timeout. Keep persistence and finalization serialized, preserve partial replies on stop, and surface errors on empty replies.
 - Rebuild the full message history for each request. Documents become extracted text; images use `image_url` data-URI parts.

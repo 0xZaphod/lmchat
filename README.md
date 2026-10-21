@@ -13,6 +13,7 @@ In Settings, choose a server type, enter its address, or scan a subnet for compa
 ## Features
 
 - **Streaming chat** — token-by-token SSE streaming through the OpenAI-compatible chat API
+- **Markdown replies** — headings, emphasis, lists, quotes, links, tables, and monospace code; select and copy response text
 - **Images** — gallery and camera options appear when the selected model reports vision support; images are sent as data-URIs
 - **Documents** — attach PDF, TXT, MD, CSV, JSON, XML, HTML, or source files; text is extracted and inlined into the prompt
 - **Network scanner** — finds OpenAI-compatible servers on your Wi-Fi subnet, with common port shortcuts

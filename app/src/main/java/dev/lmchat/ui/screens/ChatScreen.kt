@@ -97,6 +97,7 @@ import androidx.compose.ui.unit.dp
 import androidx.core.content.FileProvider
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
+import dev.lmchat.ui.components.AssistantMarkdown
 import dev.lmchat.LMChatApplication
 import dev.lmchat.data.util.AttachmentFactory
 import dev.lmchat.domain.Attachment
@@ -962,15 +963,20 @@ private fun MessageBubble(message: UiMessage, onRetry: (() -> Unit)?) {
                     bottomEnd = if (isUser) 4.dp else 16.dp,
                 ),
             ) {
-                Text(
-                    text = message.content,
-                    modifier = Modifier
-                        .padding(horizontal = 14.dp, vertical = 10.dp)
-                        .widthIn(max = 560.dp),
-                    color = if (isUser) MaterialTheme.colorScheme.onPrimaryContainer
-                        else MaterialTheme.colorScheme.onSurface,
-                    style = MaterialTheme.typography.bodyLarge,
-                )
+                val contentModifier = Modifier
+                    .padding(horizontal = 14.dp, vertical = 10.dp)
+                    .widthIn(max = 560.dp)
+                if (message.isAssistant) {
+                    AssistantMarkdown(message.content, modifier = contentModifier)
+                } else {
+                    Text(
+                        text = message.content,
+                        modifier = contentModifier,
+                        color = if (isUser) MaterialTheme.colorScheme.onPrimaryContainer
+                            else MaterialTheme.colorScheme.onSurface,
+                        style = MaterialTheme.typography.bodyLarge,
+                    )
+                }
             }
         }
 

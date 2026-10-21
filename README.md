@@ -33,12 +33,6 @@ Requires **Android 8.0 (API 26) or newer**. Download `LMChat-<version>.apk` from
 
 The app connects to a server you run separately; it does not run models on the phone.
 
-## Releases
-
-Download signed APKs from the [Releases page](https://github.com/0xZaphod/lmchat/releases). Each release includes its version, release notes, and an APK for manual installation. Choose the release APK for normal use; GitHub Actions artifacts are debug builds.
-
-To update, install the newer release APK over the existing app. Android preserves app data when the application ID and signing key match and the version code allows the update.
-
 ## Build
 
 Requirements: **Java 17**, **Android SDK platform 35**, and an Android Studio version compatible with the AGP version in `gradle/libs.versions.toml` (currently 9.4.1). The Gradle wrapper downloads the configured Gradle version on first use; an internet connection is required for dependencies.

@@ -136,6 +136,7 @@ fun ChatScreen(
     val models by viewModel.models.collectAsState()
     val selectedModel by viewModel.selectedModel.collectAsState()
     val supportsImages by viewModel.supportsImages.collectAsState()
+    val allowImagesOverride by viewModel.allowImagesOverride.collectAsState()
     val contextLimit by viewModel.contextLimit.collectAsState()
     val contextLimitLoading by viewModel.contextLimitLoading.collectAsState()
     val currentContextTokens by viewModel.currentContextTokens.collectAsState()
@@ -407,6 +408,9 @@ fun ChatScreen(
                 },
                 attachMenuExpanded = showAttachMenu,
                 supportsImages = supportsImages,
+                allowImagesOverride = allowImagesOverride,
+                canOverrideImages = server != null && selectedModel != null,
+                onAllowImagesChange = viewModel::setAllowImages,
                 onAttachMenuDismiss = { showAttachMenu = false },
                 onPickImage = {
                     showAttachMenu = false
@@ -601,6 +605,9 @@ private fun InputBar(
     onAttachClick: () -> Unit,
     attachMenuExpanded: Boolean,
     supportsImages: Boolean?,
+    allowImagesOverride: Boolean,
+    canOverrideImages: Boolean,
+    onAllowImagesChange: (Boolean) -> Unit,
     onAttachMenuDismiss: () -> Unit,
     onPickImage: () -> Unit,
     onTakePhoto: () -> Unit,
@@ -640,6 +647,24 @@ private fun InputBar(
                             modifier = Modifier.widthIn(max = 260.dp).padding(12.dp),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    if (canOverrideImages) {
+                        DropdownMenuItem(
+                            text = {
+                                Column {
+                                    Text("Allow images for this model")
+                                    Text("Use when you know this model supports vision.",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        modifier = Modifier.widthIn(max = 240.dp))
+                                }
+                            },
+                            trailingIcon = {
+                                androidx.compose.material3.Checkbox(
+                                    checked = allowImagesOverride, onCheckedChange = null,
+                                )
+                            },
+                            onClick = { onAllowImagesChange(!allowImagesOverride) },
                         )
                     }
                     MenuItemRow(Icons.Default.Description, "Attach document", onPickDocument)

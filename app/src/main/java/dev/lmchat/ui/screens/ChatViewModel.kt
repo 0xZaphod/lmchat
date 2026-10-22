@@ -135,7 +135,19 @@ class ChatViewModel(
         result?.takeIf { it.server == s && it.model == model }?.details
     }.stateIn(viewModelScope, SharingStarted.Eagerly, null)
 
-    val supportsImages = activeMetadata.map { it?.supportsImages }
+    val allowImagesOverride = combine(server, selectedModel, settings.allowedImageModels) { s, model, _ ->
+        s != null && model != null && settings.allowsImages(s, model)
+    }.stateIn(viewModelScope, SharingStarted.Eagerly, false)
+
+    fun setAllowImages(allow: Boolean) {
+        val s = server.value ?: return
+        val model = selectedModel.value ?: return
+        settings.setAllowImages(s, model, allow)
+    }
+
+    val supportsImages = combine(activeMetadata, allowImagesOverride) { metadata, allow ->
+        if (allow) true else metadata?.supportsImages
+    }
         .stateIn(viewModelScope, SharingStarted.Eagerly, null)
     val contextLimit = combine(server, activeMetadata) { s, metadata ->
         s?.contextLimitOverride?.takeIf { it > 0 } ?: metadata?.contextLength
@@ -335,10 +347,13 @@ class ChatViewModel(
 
     private fun canSendImages(attachments: List<Attachment>): Boolean {
         if (attachments.none { it.kind == AttachmentKind.IMAGE }) return true
+        val activeServer = server.value
+        val model = selectedModel.value
+        if (activeServer != null && model != null && settings.allowsImages(activeServer, model)) return true
         val result = metadataResult.value
         if (result?.server == server.value && result?.model == selectedModel.value && result?.details?.supportsImages == true) return true
         notice(if (supportsImages.value == false) "This model does not support images. Choose a vision-capable model to use image attachments."
-            else "Image support has not been confirmed for this model. Refresh the model list and try again.")
+            else "Image support has not been confirmed for this model. Enable Allow images for this model in the attachment menu if it supports vision.")
         return false
     }
 

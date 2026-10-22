@@ -2,7 +2,7 @@
 
 ## Overview
 
-LMChat is an Android app for chatting with language models hosted on a server you choose. It supports LM Studio, Ollama, llama.cpp, and servers with a compatible OpenAI-style API, including vLLM and LocalAI. Connect over your Wi-Fi network or a VPN, then stream replies, manage chats, and attach documents. Image and camera attachments are available when the selected model reports that it supports vision.
+LMChat is an Android app for chatting with language models hosted on a server you choose. It supports LM Studio, Ollama, llama.cpp, and servers with a compatible OpenAI-style API, including vLLM and LocalAI. Connect over your Wi-Fi network or a VPN, then stream replies, manage chats, and attach documents. Image and camera attachments are available when the selected model reports vision support or you enable its saved image override.
 
 The server runs the model and receives prompts and attachments for inference. LMChat stores conversations and their attachments on the phone until you delete the chat. It does not delete original files selected from the phone.
 
@@ -14,7 +14,7 @@ In Settings, choose a server type, enter its address, or scan a subnet for compa
 
 - **Streaming chat** — token-by-token SSE streaming through the OpenAI-compatible chat API
 - **Markdown replies** — headings, emphasis, lists, quotes, links, tables, and monospace code; select and copy response text
-- **Images** — gallery and camera options appear when the selected model reports vision support; images are sent as data-URIs
+- **Images** — gallery and camera options appear when the selected model reports vision support or you enable **Allow images for this model** in the attachment menu; images are sent as data-URIs
 - **Documents** — attach PDF, TXT, MD, CSV, JSON, XML, HTML, or source files; text is extracted and inlined into the prompt
 - **Network scanner** — finds OpenAI-compatible servers on your Wi-Fi subnet, with common port shortcuts
 - **Multiple chats** — conversation history persisted locally (Room), rename & delete
@@ -82,7 +82,7 @@ Choose a server type in Settings or the chat's manual server form. Existing serv
 
 All types use `/v1/models` and streaming `/v1/chat/completions`, with optional Bearer authentication. Configure the server to listen on a network address reachable by the phone. The scanner checks the selected port; the shortcuts can be overridden.
 
-Vision support is checked again when the model/server changes or the model list is refreshed. Unknown capability data is not treated as support: image/camera options stay hidden with an explanation, while documents remain available. Sending images already attached to a conversation also requires confirmed vision support. No model-name guessing is used.
+Vision support is checked again when the model/server changes or the model list is refreshed. Unknown capability data is not treated as support: image/camera options stay hidden with an explanation, while documents remain available. If you know the model supports vision, enable **Allow images for this model** in the attachment menu. This override is saved for that server and model and also permits sending images already attached to the conversation. Turn it off to restore automatic detection. No model-name guessing is used.
 
 Context limits come from the running configuration, never the model's training maximum. A model that loads on demand may report its context limit only after the first message. For servers that do not expose it, Settings has an optional per-server **context limit override**, in tokens. This only changes the display; it does not configure the server. Generic compatibility does not guarantee metadata availability or image support on every model.
 
@@ -90,7 +90,7 @@ Protocol and metadata regression checks: `./gradlew testDebugUnitTest`. Document
 
 ### Notes
 
-- **Images** require a model that reports vision support. If the server omits capabilities, refresh the model list or choose its specific server type.
+- **Images** require vision support. If the server omits capabilities, refresh the model list, choose its specific server type, or enable **Allow images for this model** in the attachment menu when you know vision is available.
 - **Documents** are converted to plain text (PDF via PDFBox-Android, others decoded as UTF-8) and appended to the prompt as fenced code blocks — large documents are truncated to ~120 KB of text.
 - **API key:** if you've set one in LM Studio, enter it in Settings or the per-chat server dialog.
 

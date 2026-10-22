@@ -60,7 +60,13 @@ class ModelMetadataReader(client: OkHttpClient) {
             ServerType.OPENAI_COMPATIBLE -> generic()
             ServerType.AUTO -> lmStudio() ?: ollama() ?: llamaCpp() ?: generic()
         } ?: ModelMetadata()
-        result.copy(contextLength = server.contextLimitOverride?.takeIf { it > 0 } ?: result.contextLength)
+        // Older Strata servers expose vision only through health, before the
+        // llama.cpp-compatible discovery endpoints were added.
+        val images = if (result.supportsImages == null) {
+            request("/health")?.let { MetadataParser.strataHealth(it, model) }?.supportsImages
+        } else result.supportsImages
+        result.copy(supportsImages = images,
+            contextLength = server.contextLimitOverride?.takeIf { it > 0 } ?: result.contextLength)
     }
 }
 
@@ -72,6 +78,11 @@ internal object MetadataParser {
     private fun JsonObject.positiveInt(key: String) = (this[key] as? JsonPrimitive)?.intOrNull?.takeIf { it > 0 }
     private fun JsonObject.boolean(key: String) = (this[key] as? JsonPrimitive)?.booleanOrNull
     private fun JsonObject.strings(key: String) = (this[key] as? JsonArray)?.mapNotNull { (it as? JsonPrimitive)?.contentOrNull }
+
+    fun strataHealth(root: JsonObject, modelId: String): ModelMetadata? {
+        if (root.string("service") != "strata" || root.string("model") != modelId) return null
+        return ModelMetadata(supportsImages = root.boolean("images"))
+    }
 
     fun lmStudio(root: JsonObject, modelId: String): ModelMetadata? {
         val models = root.objects("models")

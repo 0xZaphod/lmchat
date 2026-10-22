@@ -3,6 +3,10 @@ package dev.lmchat.data.repository
 import android.content.Context
 import dev.lmchat.domain.ServerInfo
 import dev.lmchat.domain.ServerType
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonPrimitive
 
 /**
  * Simple SharedPreferences-backed store for "last used" defaults:
@@ -12,6 +16,23 @@ class SettingsStore(context: Context) {
 
     private val prefs = context.applicationContext
         .getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+
+    private val imageOverrides = MutableStateFlow(prefs.getStringSet("image_model_overrides", emptySet())!!.toSet())
+    val allowedImageModels = imageOverrides.asStateFlow()
+
+    private fun imageModelKey(server: ServerInfo, model: String): String = JsonArray(listOf(
+        JsonPrimitive(server.baseUrl.removeSuffix("/v1")), JsonPrimitive(model),
+    )).toString()
+
+    fun allowsImages(server: ServerInfo, model: String): Boolean =
+        imageModelKey(server, model) in imageOverrides.value
+
+    fun setAllowImages(server: ServerInfo, model: String, allow: Boolean) {
+        val key = imageModelKey(server, model)
+        val updated = if (allow) imageOverrides.value + key else imageOverrides.value - key
+        prefs.edit().putStringSet("image_model_overrides", updated).apply()
+        imageOverrides.value = updated
+    }
 
     var host: String
         get() = prefs.getString(KEY_HOST, "127.0.0.1") ?: "127.0.0.1"

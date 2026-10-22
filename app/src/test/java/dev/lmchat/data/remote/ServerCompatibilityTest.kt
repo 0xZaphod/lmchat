@@ -142,12 +142,33 @@ class ServerCompatibilityTest {
     @Test fun missingMetadataPreservesUnknownVisionAndAllowsManualContextLimit() = runBlocking {
         MockWebServer().use { mock ->
             mock.enqueue(MockResponse().setResponseCode(404))
+            mock.enqueue(MockResponse().setResponseCode(404))
             mock.start()
             val result = ModelMetadataReader(LmStudioClient.buildClient()).read(
                 ServerInfo(mock.hostName, mock.port, type = ServerType.OPENAI_COMPATIBLE, contextLimitOverride = 32768), "model")
             assertNull(result.supportsImages)
             assertEquals(32768, result.contextLength)
         }
+    }
+
+    @Test fun olderStrataHealthConfirmsImagesOnlyForItsOwnModel() = runBlocking {
+        for (images in listOf(true, false)) {
+            MockWebServer().use { mock ->
+                mock.enqueue(MockResponse().setBody("""{"data":[{"id":"model"}]}"""))
+                mock.enqueue(MockResponse().setBody("""{"service":"strata","model":"model","images":$images}"""))
+                mock.start()
+                val result = ModelMetadataReader(LmStudioClient.buildClient()).read(
+                    ServerInfo(mock.hostName, mock.port, "test-key", ServerType.OPENAI_COMPATIBLE), "model")
+                assertEquals(images, result.supportsImages)
+                assertEquals("/v1/models", mock.takeRequest().path)
+                val health = mock.takeRequest()
+                assertEquals("/health", health.path)
+                assertEquals("Bearer test-key", health.getHeader("Authorization"))
+            }
+        }
+        assertNull(MetadataParser.strataHealth(json("""{"service":"strata","model":"other","images":true}"""), "model"))
+        assertNull(MetadataParser.strataHealth(json("""{"model":"model","images":true}"""), "model"))
+        assertNull(MetadataParser.strataHealth(json("""{"service":"strata","model":"model"}"""), "model")!!.supportsImages)
     }
 
     @Test fun probeRejectsSuccessfulHtmlButAcceptsEmptyCompatibleModelList() = runBlocking {

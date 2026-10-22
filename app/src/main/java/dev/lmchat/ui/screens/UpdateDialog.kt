@@ -4,6 +4,7 @@ import android.content.Intent
 import android.net.Uri
 import android.provider.Settings
 import android.widget.Toast
+import android.text.format.Formatter
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
@@ -46,18 +47,32 @@ fun UpdateDialog(viewModel: UpdateViewModel) {
         onDismissRequest = viewModel::dismiss,
         title = { Text(state.release?.let { "LMChat ${it.version} available" } ?: "App updates") },
         text = {
-            Column(Modifier.heightIn(max = 360.dp).verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 state.release?.let { release ->
                     Text("Installed: ${viewModel.installedVersion}")
-                    if (release.notes.isNotBlank()) Text(release.notes)
+                    if (state.downloading) {
+                        val progress = (state.downloadedBytes.toFloat() / release.size).coerceIn(0f, 1f)
+                        if (state.downloadedBytes >= release.size) {
+                            LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+                            Text("Download complete. Verifying update…")
+                        } else {
+                            LinearProgressIndicator(progress = { progress }, modifier = Modifier.fillMaxWidth())
+                            Text("Downloading… ${(progress * 100).toInt()}%")
+                        }
+                        Text(
+                            "${Formatter.formatFileSize(context, state.downloadedBytes)} / ${Formatter.formatFileSize(context, release.size)}",
+                            style = MaterialTheme.typography.bodySmall,
+                        )
+                    }
                     if (state.apk != null) Text("Ready to install. Android will ask you to confirm the update.")
                 }
-                if (state.downloading) {
-                    LinearProgressIndicator(progress = { state.progress }, modifier = Modifier.fillMaxWidth())
-                    Text("Downloading… ${(state.progress * 100).toInt()}%")
-                }
                 state.message?.let { Text(it) }
+                state.release?.notes?.takeIf { it.isNotBlank() }?.let { notes ->
+                    Text(
+                        notes,
+                        modifier = Modifier.heightIn(max = 200.dp).verticalScroll(rememberScrollState()),
+                    )
+                }
             }
         },
         confirmButton = {
@@ -70,7 +85,11 @@ fun UpdateDialog(viewModel: UpdateViewModel) {
                 } catch (e: Exception) {
                     viewModel.error("Couldn't open install permissions. Enable them in Android Settings.")
                 }
-            }) { Text(if (state.apk == null) "Update" else "Install") }
+            }) { Text(when {
+                state.downloading -> "Downloading…"
+                state.apk == null -> "Update"
+                else -> "Install"
+            }) }
             else TextButton(onClick = viewModel::dismiss) { Text("OK") }
         },
         dismissButton = {

@@ -67,7 +67,7 @@ class AppUpdater(private val context: Context) {
             }
     }
 
-    suspend fun download(release: AppRelease, progress: (Float) -> Unit): File = withContext(Dispatchers.IO) {
+    suspend fun download(release: AppRelease, progress: (Long) -> Unit): File = withContext(Dispatchers.IO) {
         val directory = File(context.cacheDir, "updates").apply { mkdirs() }
         val file = File(directory, "update.apk")
         try {
@@ -88,7 +88,7 @@ class AppUpdater(private val context: Context) {
                             output.write(buffer, 0, count)
                             val percent = (total * 100 / release.size).toInt()
                             if (percent != lastPercent) {
-                                progress(total.toFloat() / release.size)
+                                progress(total)
                                 lastPercent = percent
                             }
                         }

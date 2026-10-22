@@ -16,7 +16,7 @@ data class UpdateState(
     val release: AppRelease? = null,
     val checking: Boolean = false,
     val downloading: Boolean = false,
-    val progress: Float = 0f,
+    val downloadedBytes: Long = 0L,
     val apk: File? = null,
     val message: String? = null,
     val toastMessage: String? = null,
@@ -50,10 +50,10 @@ class UpdateViewModel(private val updater: AppUpdater) : ViewModel() {
         val release = mutableState.value.release ?: return
         if (job?.isActive == true) return
         job = viewModelScope.launch {
-            mutableState.value = mutableState.value.copy(downloading = true, message = null, progress = 0f)
+            mutableState.value = mutableState.value.copy(downloading = true, message = null, downloadedBytes = 0L)
             try {
-                val apk = updater.download(release) { progress ->
-                    mutableState.value = mutableState.value.copy(progress = progress)
+                val apk = updater.download(release) { downloadedBytes ->
+                    mutableState.value = mutableState.value.copy(downloadedBytes = downloadedBytes)
                 }
                 mutableState.value = mutableState.value.copy(downloading = false, apk = apk)
             } catch (e: CancellationException) {

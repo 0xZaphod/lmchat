@@ -13,6 +13,7 @@ import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -994,13 +995,15 @@ private fun MessageBubble(message: UiMessage, onRetry: (() -> Unit)?) {
                 if (message.isAssistant) {
                     AssistantMarkdown(message.content, modifier = contentModifier)
                 } else {
-                    Text(
-                        text = message.content,
-                        modifier = contentModifier,
-                        color = if (isUser) MaterialTheme.colorScheme.onPrimaryContainer
-                            else MaterialTheme.colorScheme.onSurface,
-                        style = MaterialTheme.typography.bodyLarge,
-                    )
+                    SelectionContainer {
+                        Text(
+                            text = message.content,
+                            modifier = contentModifier,
+                            color = if (isUser) MaterialTheme.colorScheme.onPrimaryContainer
+                                else MaterialTheme.colorScheme.onSurface,
+                            style = MaterialTheme.typography.bodyLarge,
+                        )
+                    }
                 }
             }
         }

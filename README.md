@@ -2,30 +2,36 @@
 
 ## Overview
 
-LMChat is an Android app for chatting with language models hosted on a server you choose. It supports LM Studio, Ollama, llama.cpp, and servers with a compatible OpenAI-style API, including vLLM and LocalAI. Connect over your Wi-Fi network or a VPN, then stream replies, manage chats, and attach documents. Image and camera attachments are available when the selected model reports vision support or you enable its saved image override.
+LMChat is an Android app for chatting with language models hosted on a server you choose. Use LLM servers such as LM Studio, Ollama, llama.cpp, vLLM, and LocalAI over Wi-Fi or a VPN to stream replies, manage chats, and attach documents. Image and camera attachments are available when the selected model reports vision support or you enable its saved image override.
 
 The server runs the model and receives prompts and attachments for inference. LMChat stores conversations and their attachments on the phone until you delete the chat. It does not delete original files selected from the phone.
 
-In Settings, choose a server type, enter its address, or scan a subnet for compatible servers. Choose **Auto-detect** to let LMChat try its supported server metadata APIs. The generic OpenAI-compatible option works with `/v1/models` and `/v1/chat/completions`; metadata such as vision support or configured context length may vary by server.
+In Settings, scan for a server or enter its address, then choose a model and start chatting. **Auto-detect** handles server-specific model information where available.
 
 ![stack](https://img.shields.io/badge/Kotlin-Jetpack%20Compose-8AB4F8) ![material](https://img.shields.io/badge/Material-3-8AB4F8)
 
 ## Features
 
-- **Streaming chat** — token-by-token SSE streaming through the OpenAI-compatible chat API
+- **Streaming chat** — watch replies arrive as the server generates them
 - **Markdown replies** — headings, emphasis, lists, quotes, links, tables, and monospace code; select and copy response text
 - **Images** — gallery and camera options appear when the selected model reports vision support or you enable **Allow images for this model** in the attachment menu; images are sent as data-URIs
 - **Documents** — attach PDF, TXT, MD, CSV, JSON, XML, HTML, or source files; text is extracted and inlined into the prompt
-- **Network scanner** — finds OpenAI-compatible servers on your Wi-Fi subnet, with common port shortcuts
+- **Network scanner** — finds compatible LLM servers on your local network, with common port shortcuts
 - **Multiple chats** — conversation history persisted locally (Room), rename & delete
 - **Saved servers** — keep a list of servers, switch per chat or set a default
-- **Model picker** — live model list from `/v1/models`, selectable per conversation
+- **Model picker** — choose from the server’s available models for each conversation
 
 ## Install
 
 Requires **Android 8.0 (API 26) or newer**. Download `LMChat-<version>.apk` from [GitHub Releases](https://github.com/0xZaphod/lmchat/releases), open it on your phone, and allow installation from your browser or file manager when Android asks. Use APKs signed with the same key to update an existing installation.
 
 The app connects to a server you run separately; it does not run models on the phone.
+
+### In-app updates
+
+LMChat checks the latest stable GitHub release when opened. There are no scheduled or background update checks. Settings also offers **Check for updates**. Tap **Update** to download the release APK, then **Install** to open Android’s confirmation screen. Android may first ask you to allow installations from LMChat. Downloads are stored in the app cache; interrupted downloads can be retried.
+
+Updating preserves local chats and settings. Updates must use the same signing key; debug builds cannot install official releases signed with a different key.
 
 ## Build
 
@@ -39,60 +45,17 @@ Open the project in Android Studio and let Gradle sync, or set `ANDROID_HOME` to
 
 The debug APK is `app/build/outputs/apk/debug/app-debug.apk`. Install it with Android Studio or `adb install -r app/build/outputs/apk/debug/app-debug.apk`. Debug and release builds use different signing keys, so switching between them may require uninstalling the app and losing its local data.
 
-### Release builds
+Run document import and send regression tests on a connected Android device or emulator with `./gradlew connectedDebugAndroidTest`.
 
-```bash
-./gradlew assembleRelease
-```
+For release builds and signing, see [Contributing](CONTRIBUTING.md#release-builds).
 
-To sign your own release, create an ignored `keystore.properties` in the project root:
+## Servers and model capabilities
 
-```properties
-storeFile=/absolute/path/to/your-release-key.jks
-storePassword=YOUR_STORE_PASSWORD
-keyAlias=YOUR_KEY_ALIAS
-keyAliasPassword=YOUR_KEY_PASSWORD
-```
+LMChat supports LM Studio, Ollama, llama.cpp, vLLM, LocalAI, and other LLM servers exposing `/v1/models` and streaming `/v1/chat/completions`. Choose **Auto-detect** or the matching server type in Settings.
 
-With signing configured, the output is `app/build/outputs/apk/release/LMChat-<versionName>.apk`. Without it, the release is unsigned and must be signed before installation. Keep your key and passwords private and backed up; updates require the same signing key. Increment `versionCode` for each release and set the user-facing `versionName` in `app/build.gradle.kts`.
+Enter a host/IP and port, or a full base URL such as `https://models.example.com`. Full URLs supply their own scheme and port; omit API paths such as `/v1/chat/completions`. The server must be reachable from your phone. If it requires an API key, enter it in Settings or the chat’s server dialog.
 
-GitHub Actions runs unit tests and builds a debug APK on pushes and pull requests, without release credentials. Its APK artifact is a development build. Publish signed APKs separately through GitHub Releases.
-
-## LM Studio setup
-
-1. In LM Studio, open the **Developer** tab and start the **Local Server** (default port **1234**)
-2. Load a model in the playground first — the server serves loaded models
-3. Enable network access in the server and make sure the phone can reach its listening address and port.
-4. In LMChat:
-   - **Scan:** open Settings, select port 1234, scan, and add your server. Select **Use** in Saved servers.
-   - **Manual:** enter the host (your PC's Wi-Fi IP, e.g. `192.168.1.20`), port, and server type in Settings, then save. The chat model selector also opens the saved-server picker when no models are available.
-
-For manual connections, enter a bare host/IP and port, or a full URL such as `https://models.example.com`. Full URLs supply their own port (443 for HTTPS or 80 for HTTP unless specified), so the separate Port field can be left empty. Enter the server base URL without `/v1/models` or `/v1/chat/completions`; LMChat appends the API routes.
-
-## Other servers and model capabilities
-
-Choose a server type in Settings or the chat's manual server form. Existing servers use **Auto-detect**.
-
-| Server type | Common port | Vision and configured context metadata |
-| --- | --- | --- |
-| LM Studio | 1234 | `/api/v1/models`: capabilities and loaded-instance configuration |
-| Ollama | 11434 | `/api/show`: capabilities; `/api/ps`: running model's context length |
-| llama.cpp | 8080 (configurable) | `/props?model=…`: modalities and per-slot context length |
-| OpenAI-compatible (vLLM, LocalAI, others) | Depends on server | Explicit capability fields in `/v1/models`, when provided; `max_model_len` for vLLM |
-
-All types use `/v1/models` and streaming `/v1/chat/completions`, with optional Bearer authentication. Configure the server to listen on a network address reachable by the phone. The scanner checks the selected port; the shortcuts can be overridden.
-
-Vision support is checked again when the model/server changes or the model list is refreshed. Unknown capability data is not treated as support: image/camera options stay hidden with an explanation, while documents remain available. If you know the model supports vision, enable **Allow images for this model** in the attachment menu. This override is saved for that server and model and also permits sending images already attached to the conversation. Turn it off to restore automatic detection. No model-name guessing is used.
-
-Context limits come from the running configuration, never the model's training maximum. A model that loads on demand may report its context limit only after the first message. For servers that do not expose it, Settings has an optional per-server **context limit override**, in tokens. This only changes the display; it does not configure the server. Generic compatibility does not guarantee metadata availability or image support on every model.
-
-Protocol and metadata regression checks: `./gradlew testDebugUnitTest`. Document import and send regression tests run on a connected Android device/emulator with `./gradlew connectedDebugAndroidTest`.
-
-### Notes
-
-- **Images** require vision support. If the server omits capabilities, refresh the model list, choose its specific server type, or enable **Allow images for this model** in the attachment menu when you know vision is available.
-- **Documents** are converted to plain text (PDF via PDFBox-Android, others decoded as UTF-8) and appended to the prompt as fenced code blocks — large documents are truncated to ~120 KB of text.
-- **API key:** if you've set one in LM Studio, enter it in Settings or the per-chat server dialog.
+Image attachments require reported vision support or the saved **Allow images for this model** override in the attachment menu. Documents are extracted as text and work without vision support. Context usage uses the server’s running configuration or a local **context limit override** in Settings; the override does not change the server itself.
 
 ## Project structure
 
@@ -115,17 +78,11 @@ app/src/main/java/dev/lmchat/
 ## Troubleshooting
 
 - **Scan finds nothing** — confirm both devices share a Wi-Fi SSID; some routers isolate phones from LAN clients (AP isolation). Enter the host manually in that case.
-- **Connection refused** — LM Studio server not started, or firewall is blocking it (allow `lms` on your LAN).
-- **Model won't load** — the model must be loaded in LM Studio before the server will serve it.
+- **Connection refused** — check that the server is running, accepts network connections, and is allowed through its firewall.
+- **Model unavailable** — check that the model is installed and ready on the server, then refresh the model list.
 
 ## License
 
 LMChat is source-available under the [PolyForm Noncommercial License 1.0.0](LICENSE). Use, modification, and redistribution are permitted for the purposes specified in the license, including noncommercial use. Commercial use is not granted by this license.
 
 Third-party dependencies retain their respective licenses.
-
-### In-app updates
-
-LMChat checks the latest stable GitHub release when opened. There are no scheduled or background update checks. Settings also offers **Check for updates**. Tap **Update** to download the release APK, then **Install** to open Android’s confirmation screen. Android may first ask you to allow installations from LMChat. Downloads are stored in the app cache; interrupted downloads can be retried.
-
-Updates must have a higher numeric release version, a higher APK `versionCode`, the same package name and signing key. Publish the signed `LMChat-<versionName>.apk` asset on a stable GitHub release tagged `<versionName>` or `v<versionName>`. Debug builds cannot install official releases signed with a different key. Updating preserves local chats and settings.

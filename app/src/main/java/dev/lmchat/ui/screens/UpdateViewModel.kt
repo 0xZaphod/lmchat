@@ -19,6 +19,7 @@ data class UpdateState(
     val progress: Float = 0f,
     val apk: File? = null,
     val message: String? = null,
+    val toastMessage: String? = null,
     val visible: Boolean = false,
 )
 
@@ -34,8 +35,8 @@ class UpdateViewModel(private val updater: AppUpdater) : ViewModel() {
             mutableState.value = UpdateState(checking = true)
             try {
                 val release = updater.check()
-                mutableState.value = UpdateState(release = release, visible = release != null || manual,
-                    message = if (release == null && manual) "You're up to date." else null)
+                mutableState.value = UpdateState(release = release, visible = release != null,
+                    toastMessage = if (release == null && manual) "You're up to date." else null)
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
@@ -63,6 +64,8 @@ class UpdateViewModel(private val updater: AppUpdater) : ViewModel() {
             }
         }
     }
+
+    fun toastShown() { mutableState.value = mutableState.value.copy(toastMessage = null) }
 
     fun error(message: String) { mutableState.value = mutableState.value.copy(message = message) }
     fun dismiss() {

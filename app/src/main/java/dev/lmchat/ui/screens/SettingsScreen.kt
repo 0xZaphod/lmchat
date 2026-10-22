@@ -189,7 +189,7 @@ fun SettingsScreen(
             }
 
             item {
-                Card {
+                Card(modifier = Modifier.fillMaxWidth()) {
                     Column(
                         modifier = Modifier.padding(16.dp),
                         verticalArrangement = Arrangement.spacedBy(8.dp),
@@ -200,14 +200,7 @@ fun SettingsScreen(
                         OutlinedButton(onClick = { updates.check(manual = true) }, enabled = !updateState.checking && !updateState.downloading) {
                             Text(if (updateState.checking) "Checking…" else "Check for updates")
                         }
-                        Text(
-                            text = "LMChat — chat with LM Studio, Ollama, llama.cpp, or an OpenAI-compatible server such as vLLM or LocalAI. " +
-                                    "Use a reachable server address, on your local network or VPN. " +
-                                    "Use a vision-capable model to send images. " +
-                                    "Documents (PDF, TXT, MD, CSV, JSON, code) are converted to text and included in the prompt.",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
+
                     }
                 }
             }

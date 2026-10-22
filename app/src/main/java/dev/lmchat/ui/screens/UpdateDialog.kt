@@ -3,6 +3,7 @@ package dev.lmchat.ui.screens
 import android.content.Intent
 import android.net.Uri
 import android.provider.Settings
+import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
@@ -33,6 +34,12 @@ fun UpdateDialog(viewModel: UpdateViewModel) {
     val permissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) {
         if (context.packageManager.canRequestPackageInstalls()) install()
         else viewModel.error("Allow LMChat to install updates, then tap Install again.")
+    }
+    LaunchedEffect(state.toastMessage) {
+        state.toastMessage?.let { message ->
+            Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+            viewModel.toastShown()
+        }
     }
     if (!state.visible) return
     AlertDialog(

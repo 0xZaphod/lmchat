@@ -330,6 +330,8 @@ class ChatRepository(
             onComplete = { _ ->
                 if (stopRequested.get()) {
                     finalizeStreaming("error", "Interrupted")
+                } else if (buffer.isBlank()) {
+                    finalizeStreaming("error", "The server returned an empty response. Please retry.")
                 } else {
                     finalizeStreaming("done", null)
                 }

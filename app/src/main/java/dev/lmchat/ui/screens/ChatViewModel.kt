@@ -280,15 +280,13 @@ class ChatViewModel(
         return true
     }
 
-    fun retryInterrupted(assistantMessageId: String) {
+    fun retryResponse(assistantMessageId: String) {
         if (isStreaming.value || retryingMessageId != null) return
         val currentMessages = messages.value
         val responseIndex = currentMessages.indexOfLast { it.id == assistantMessageId }
         if (responseIndex != currentMessages.lastIndex || responseIndex < 0) return
         val interrupted = currentMessages[responseIndex]
-        if (!interrupted.isAssistant || interrupted.status != "error" ||
-            interrupted.error?.startsWith("Interrupted") != true
-        ) return
+        if (!interrupted.isAssistant || interrupted.status != "error") return
         val previousUser = currentMessages.take(responseIndex).lastOrNull { it.isUser } ?: run {
             notice("Can't retry: the original message wasn't found.")
             return

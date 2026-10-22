@@ -370,11 +370,10 @@ fun ChatScreen(
                 itemsIndexed(messages, key = { _, message -> message.id }) { index, message ->
                     val canRetry = index == messages.lastIndex &&
                         message.isAssistant &&
-                        message.status == "error" &&
-                        message.error?.startsWith("Interrupted") == true
+                        message.status == "error"
                     MessageBubble(
                         message = message,
-                        onRetry = if (canRetry) ({ viewModel.retryInterrupted(message.id) }) else null,
+                        onRetry = if (canRetry) ({ viewModel.retryResponse(message.id) }) else null,
                     )
                 }
             }

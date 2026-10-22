@@ -16,6 +16,7 @@ import okhttp3.sse.EventSource
 import okhttp3.sse.EventSources
 import okio.Timeout
 import java.util.concurrent.TimeUnit
+import java.io.IOException
 
 /**
  * Shared OpenAI-compatible chat client for local inference servers.
@@ -98,12 +99,18 @@ class LmStudioClient(private val client: OkHttpClient) {
 
         val listener = object : okhttp3.sse.EventSourceListener() {
             private val buffer = StringBuilder()
+            private var receivedEnd = false
 
             override fun onEvent(eventSource: EventSource, id: String?, type: String?, data: String) {
-                if (data == "[DONE]") return
+                if (data == "[DONE]") {
+                    receivedEnd = true
+                    return
+                }
                 try {
                     val chunk = JSON.decodeFromString(ChatCompletionChunk.serializer(), data)
-                    val token = chunk.choices.firstOrNull()?.delta?.content
+                    val choice = chunk.choices.firstOrNull()
+                    if (choice?.finishReason != null) receivedEnd = true
+                    val token = choice?.delta?.content
                     if (!token.isNullOrEmpty()) {
                         buffer.append(token)
                         onToken(token)
@@ -116,14 +123,21 @@ class LmStudioClient(private val client: OkHttpClient) {
             }
 
             override fun onClosed(eventSource: EventSource) {
-                onComplete(buffer.toString())
+                if (receivedEnd) onComplete(buffer.toString())
+                else onError(IOException("Connection closed before the response finished. Please retry."))
             }
 
             override fun onFailure(eventSource: EventSource, t: Throwable?, response: Response?) {
                 val full = buffer.toString()
-                if (full.isNotEmpty()) {
-                    // We already got partial content; treat as completion to keep the partial reply.
+                if (receivedEnd) {
                     onComplete(full)
+                    response?.close()
+                    return
+                }
+                if (full.isNotEmpty()) {
+                    // The repository already has these tokens; retain them as an error,
+                    // rather than silently treating a broken stream as a complete reply.
+                    onError(IOException("Connection lost before the response finished. Please retry.", t))
                     response?.close()
                     return
                 }

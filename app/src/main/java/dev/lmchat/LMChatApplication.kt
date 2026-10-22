@@ -20,6 +20,8 @@ import kotlinx.coroutines.launch
  */
 class AppContainer(context: Context) {
 
+    val updater = dev.lmchat.data.update.AppUpdater(context.applicationContext)
+
     val database: AppDatabase = AppDatabase.get(context.applicationContext)
     val client: LmStudioClient = LmStudioClient(LmStudioClient.buildClient())
     val scanner: NetworkScanner = NetworkScanner(LmStudioClient.buildScannerClient())

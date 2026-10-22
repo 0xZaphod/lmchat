@@ -123,3 +123,9 @@ app/src/main/java/dev/lmchat/
 LMChat is source-available under the [PolyForm Noncommercial License 1.0.0](LICENSE). Use, modification, and redistribution are permitted for the purposes specified in the license, including noncommercial use. Commercial use is not granted by this license.
 
 Third-party dependencies retain their respective licenses.
+
+### In-app updates
+
+LMChat checks the latest stable GitHub release when opened. There are no scheduled or background update checks. Settings also offers **Check for updates**. Tap **Update** to download the release APK, then **Install** to open Android’s confirmation screen. Android may first ask you to allow installations from LMChat. Downloads are stored in the app cache; interrupted downloads can be retried.
+
+Updates must have a higher numeric release version, a higher APK `versionCode`, the same package name and signing key. Publish the signed `LMChat-<versionName>.apk` asset on a stable GitHub release tagged `<versionName>` or `v<versionName>`. Debug builds cannot install official releases signed with a different key. Updating preserves local chats and settings.

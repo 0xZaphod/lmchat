@@ -57,6 +57,7 @@ import kotlinx.coroutines.launch
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
+    updates: UpdateViewModel,
     onBack: () -> Unit,
     onConfigurationComplete: () -> Unit = {},
 ) {
@@ -194,6 +195,11 @@ fun SettingsScreen(
                         verticalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
                         SectionTitle("About", Icons.Default.Save)
+                        val updateState by updates.state.collectAsState()
+                        Text("Version ${updates.installedVersion}")
+                        OutlinedButton(onClick = { updates.check(manual = true) }, enabled = !updateState.checking && !updateState.downloading) {
+                            Text(if (updateState.checking) "Checking…" else "Check for updates")
+                        }
                         Text(
                             text = "LMChat — chat with LM Studio, Ollama, llama.cpp, or an OpenAI-compatible server such as vLLM or LocalAI. " +
                                     "Use a reachable server address, on your local network or VPN. " +

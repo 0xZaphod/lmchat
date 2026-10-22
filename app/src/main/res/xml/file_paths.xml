@@ -3,4 +3,5 @@
     <cache-path
         name="captures"
         path="captures/" />
+    <cache-path name="updates" path="updates/" />
 </paths>

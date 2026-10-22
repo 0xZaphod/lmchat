@@ -23,19 +23,31 @@ import dev.lmchat.ui.theme.LMChatTheme
 
 class MainActivity : ComponentActivity() {
 
+    private val updates by lazy {
+        androidx.lifecycle.ViewModelProvider(this,
+            dev.lmchat.ui.screens.UpdateViewModel.factory((application as LMChatApplication).container.updater)
+        )[dev.lmchat.ui.screens.UpdateViewModel::class.java]
+    }
+
+    override fun onStart() {
+        super.onStart()
+        if (!isChangingConfigurations) updates.check()
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
             LMChatTheme {
-                LMChatApp()
+                LMChatApp(updates)
             }
         }
     }
 }
 
 @Composable
-private fun LMChatApp() {
+private fun LMChatApp(updates: dev.lmchat.ui.screens.UpdateViewModel) {
+    dev.lmchat.ui.screens.UpdateDialog(updates)
     val container = (androidx.compose.ui.platform.LocalContext.current
         .applicationContext as LMChatApplication).container
     val navController = rememberNavController()
@@ -77,6 +89,7 @@ private fun LMChatApp() {
         }
         composable("settings") {
             SettingsScreen(
+                updates = updates,
                 onBack = {
                     if (!navController.popBackStack()) {
                         navController.navigate("chats") {

@@ -4,15 +4,9 @@
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    <!-- Chat bubble -->
+    <!-- Cut-out letters keep LM legible in both full-color and themed icons. -->
     <path
         android:fillColor="#8AB4F8"
-        android:pathData="M54,26c-15.5,0 -28,10.5 -28,23.5c0,7.4 3.9,14 10,18.2L32,82l13.2,-6.1c2.8,0.8 5.8,1.3 8.8,1.3c15.5,0 28,-10.5 28,-23.5S69.5,26 54,26z" />
-    <!-- Sparkle / L M hint -->
-    <path
-        android:fillColor="#101318"
-        android:pathData="M43,38h6v17h11v6H43z" />
-    <path
-        android:fillColor="#101318"
-        android:pathData="M57,38h6l3,9 3,-9h6l-5.5,15h-7z" />
+        android:fillType="evenOdd"
+        android:pathData="M54,27C38.5,27 26,37.5 26,50.5C26,58 30,64.7 36,69L33,80L46,74C48.6,74.7 51.3,75 54,75C69.5,75 82,64.5 82,51C82,37.5 69.5,27 54,27Z M35,40H40V56H49V61H35Z M53,61V40H58L63,49L68,40H73V61H68V49L63,57L58,49V61Z" />
 </vector>

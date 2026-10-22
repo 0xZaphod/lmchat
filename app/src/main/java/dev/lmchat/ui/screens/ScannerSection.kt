@@ -43,10 +43,11 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import dev.lmchat.LMChatApplication
 import dev.lmchat.domain.DiscoveredServer
+import dev.lmchat.data.local.ServerEntity
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
-fun ScannerSection() {
+fun ScannerSection(onServerSaved: suspend (ServerEntity) -> Unit = {}) {
     val context = LocalContext.current
     val container = (context.applicationContext as LMChatApplication).container
     val viewModel: ScannerViewModel = viewModel(factory = ScannerViewModel.factory(container))
@@ -59,6 +60,7 @@ fun ScannerSection() {
     val results by viewModel.results.collectAsState()
     val finished by viewModel.finished.collectAsState()
     val notice by viewModel.notice.collectAsState()
+    val candidates by viewModel.candidates.collectAsState()
     val selectedPrefixes by viewModel.selectedPrefixes.collectAsState()
     val customSubnet by viewModel.customSubnet.collectAsState()
     var showCustomSubnet by remember { mutableStateOf(false) }
@@ -66,7 +68,7 @@ fun ScannerSection() {
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
         Text("Find server", style = MaterialTheme.typography.titleMedium)
         Text(
-            "Scan your Wi-Fi network for OpenAI-compatible servers.",
+            "Scan your local network for compatible LLM servers.",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -164,7 +166,7 @@ fun ScannerSection() {
             horizontalArrangement = Arrangement.spacedBy(6.dp),
             verticalArrangement = Arrangement.spacedBy(4.dp),
         ) {
-            viewModel.candidates.forEach { c ->
+            candidates.forEach { c ->
                 val checked = c.prefix in selectedPrefixes
                 Surface(
                     shape = RoundedCornerShape(16.dp),
@@ -231,7 +233,7 @@ fun ScannerSection() {
         results.forEach { server ->
             ResultRow(
                 server = server,
-                onSave = { viewModel.save(server) },
+                onSave = { viewModel.save(server, onServerSaved) },
             )
         }
     }

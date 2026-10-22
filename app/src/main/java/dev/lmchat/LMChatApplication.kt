@@ -24,7 +24,7 @@ class AppContainer(context: Context) {
 
     val database: AppDatabase = AppDatabase.get(context.applicationContext)
     val client: LmStudioClient = LmStudioClient(LmStudioClient.buildClient())
-    val scanner: NetworkScanner = NetworkScanner(LmStudioClient.buildScannerClient())
+    val scanner: NetworkScanner = NetworkScanner(LmStudioClient.buildScannerClient(), context.applicationContext)
 
     val applicationScope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     val chatRepository: ChatRepository = ChatRepository(database, client, applicationScope)

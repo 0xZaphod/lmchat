@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import dev.lmchat.AppContainer
+import dev.lmchat.data.local.ServerEntity
 import dev.lmchat.data.scanner.NetworkScanner
 import dev.lmchat.domain.DiscoveredServer
 import kotlinx.coroutines.Job
@@ -65,10 +66,11 @@ class ScannerViewModel(
     private var lastReportedPercent = -1
 
     /** Subnet prefixes derived from the device's own interfaces. */
-    val candidates: List<NetworkScanner.Candidate> = container.scanner.candidatePrefixes()
+    private val _candidates = MutableStateFlow(container.scanner.candidatePrefixes())
+    val candidates = _candidates.asStateFlow()
 
     init {
-        selectedPrefixes.value = candidates.map { it.prefix }
+        selectedPrefixes.value = candidates.value.map { it.prefix }
     }
 
     private fun port(): Int = portText.value.trim().toIntOrNull() ?: 0
@@ -94,6 +96,11 @@ class ScannerViewModel(
             _notice.value = "Enter a valid port (1–65535)."
             return
         }
+        val previous = candidates.value.map { it.prefix }
+        _candidates.value = container.scanner.candidatePrefixes()
+        val current = candidates.value.map { it.prefix }
+        selectedPrefixes.value = if (selectedPrefixes.value.toSet() == previous.toSet()) current
+            else selectedPrefixes.value.filter { it in current }.ifEmpty { current }
         val custom = customSubnet.value.trim()
         val prefixes = if (custom.isEmpty()) selectedPrefixes.value else listOf(custom)
         if (custom.isNotEmpty() && !isValidCidr(custom)) {
@@ -159,9 +166,10 @@ class ScannerViewModel(
     }
 
     /** Save a discovered server into the saved-servers list. */
-    fun save(server: DiscoveredServer) {
+    fun save(server: DiscoveredServer, onSaved: suspend (ServerEntity) -> Unit = {}) {
         viewModelScope.launch {
-            container.serverRepository.saveDiscovered(server, null)
+            val saved = container.serverRepository.saveDiscovered(server, null)
+            onSaved(saved)
             _notice.value = "Saved ${server.host}:${server.port}."
         }
     }

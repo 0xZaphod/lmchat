@@ -59,7 +59,6 @@ import kotlinx.coroutines.launch
 fun SettingsScreen(
     updates: UpdateViewModel,
     onBack: () -> Unit,
-    onConfigurationComplete: () -> Unit = {},
 ) {
 
     val context = androidx.compose.ui.platform.LocalContext.current
@@ -74,6 +73,16 @@ fun SettingsScreen(
     var selectedDefault by remember { mutableStateOf(settings.host to settings.port) }
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
+
+    suspend fun selectDefaultIfNeeded(server: ServerEntity) {
+        val hasSavedDefault = serverRepo.observeAll().first().any {
+            it.host.equals(settings.host, ignoreCase = true) && it.port == settings.port
+        }
+        if (!hasSavedDefault) {
+            settings.useServer(server.info)
+            selectedDefault = server.host to server.port
+        }
+    }
 
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
@@ -104,7 +113,7 @@ fun SettingsScreen(
             item {
                 Card {
                     Column(Modifier.padding(12.dp)) {
-                        ScannerSection()
+                        ScannerSection(onServerSaved = ::selectDefaultIfNeeded)
                     }
                 }
             }
@@ -163,7 +172,9 @@ fun SettingsScreen(
                                         onClick = {
                                             settings.useServer(server.info)
                                             selectedDefault = server.host to server.port
-                                            onConfigurationComplete()
+                                            scope.launch {
+                                                snackbarHostState.showSnackbar("Default server updated")
+                                            }
                                         },
                                     ) {
                                         Text("Use")
@@ -280,11 +291,7 @@ fun SettingsScreen(
                     serverRepo.save(serverToSave)
                     settings.preferredModel = preferredModel.trim()
                     settings.systemPrompt = systemPrompt
-                    if (servers.isEmpty() || settings.host == "127.0.0.1") {
-                        settings.useServer(serverToSave.info)
-                        selectedDefault = serverToSave.host to serverToSave.port
-                        onConfigurationComplete()
-                    }
+                    selectDefaultIfNeeded(serverToSave)
                     addingServer = false
                     snackbarHostState.showSnackbar("Server added")
                 }

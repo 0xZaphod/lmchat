@@ -98,14 +98,6 @@ private fun LMChatApp(updates: dev.lmchat.ui.screens.UpdateViewModel) {
                         }
                     }
                 },
-                onConfigurationComplete = {
-                    if (startDestination == "settings") {
-                        navController.navigate("chats") {
-                            popUpTo("settings") { inclusive = true }
-                            launchSingleTop = true
-                        }
-                    }
-                },
             )
         }
     }

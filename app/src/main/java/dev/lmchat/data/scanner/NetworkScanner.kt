@@ -1,5 +1,9 @@
 package dev.lmchat.data.scanner
 
+import android.content.Context
+import android.net.ConnectivityManager
+import android.net.NetworkCapabilities
+
 import dev.lmchat.data.remote.JSON
 import dev.lmchat.data.remote.ModelList
 import dev.lmchat.data.remote.modelsUrl
@@ -23,7 +27,7 @@ import java.util.Collections
 import java.util.concurrent.atomic.AtomicInteger
 
 /**
- * Scans the local subnet for hosts running an OpenAI-compatible model server.
+ * Scans local IPv4 subnets for compatible LLM servers.
  *
  * Strategy:
  *  1. Derive candidate subnet prefixes from the device's IPv4 interfaces
@@ -32,7 +36,7 @@ import java.util.concurrent.atomic.AtomicInteger
  *  3. For each open port, fetch /v1/models to confirm it is an
  *     OpenAI-compatible server (which LM Studio is) and grab its models.
  */
-class NetworkScanner(private val scannerClient: OkHttpClient) {
+class NetworkScanner(private val scannerClient: OkHttpClient, private val context: Context? = null) {
 
     data class Candidate(
         val prefix: String,
@@ -45,6 +49,28 @@ class NetworkScanner(private val scannerClient: OkHttpClient) {
      */
     fun candidatePrefixes(): List<Candidate> {
         val found = mutableMapOf<String, String>()
+        // Android's link properties provide a second source when interface
+        // addresses or netmasks are incomplete on a particular device.
+        try {
+            val connectivity = context?.getSystemService(ConnectivityManager::class.java)
+            @Suppress("DEPRECATION")
+            val networks = connectivity?.allNetworks.orEmpty()
+            for (network in networks) {
+                val capabilities = connectivity?.getNetworkCapabilities(network) ?: continue
+                if (!capabilities.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) &&
+                    !capabilities.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET) &&
+                    !capabilities.hasTransport(NetworkCapabilities.TRANSPORT_VPN)) continue
+                val properties = connectivity.getLinkProperties(network) ?: continue
+                for (link in properties.linkAddresses) {
+                    val address = link.address
+                    if (address !is Inet4Address || !address.isSiteLocalAddress) continue
+                    val prefix = subnetPrefix(address.hostAddress ?: continue, link.prefixLength) ?: continue
+                    found.putIfAbsent(prefix, properties.interfaceName ?: "network")
+                }
+            }
+        } catch (_: Exception) {
+            // Interface discovery below remains available if Android denies access.
+        }
         try {
             val ifaces = Collections.list(NetworkInterface.getNetworkInterfaces())
             for (iface in ifaces) {
@@ -52,21 +78,8 @@ class NetworkScanner(private val scannerClient: OkHttpClient) {
                 for (ia in iface.interfaceAddresses) {
                     val addr = ia.address
                     if (addr !is Inet4Address || !addr.isSiteLocalAddress) continue
-                    val ip = addr.hostAddress ?: continue
-                    val prefixLen = ia.networkPrefixLength.toInt()
-                    if (prefixLen < 16 || prefixLen > 24) continue
-                    val mask = (0xFFFFFFFF shl (32 - prefixLen)) and 0xFFFFFFFF
-                    val net = ipToLong(ip) and mask
-                    val netStr = longToIp(net)
-                    // The simple dotted prefix represents one /24. For wider
-                    // subnets retain the mask so scan() can enumerate every
-                    // address (e.g. 192.168.68.0/22).
-                    val prefix = if (prefixLen == 24) {
-                        netStr.substringBeforeLast('.') + "."
-                    } else {
-                        "$netStr/$prefixLen"
-                    }
-                    found.getOrPut(prefix) { iface.name }
+                    val prefix = subnetPrefix(addr.hostAddress ?: continue, ia.networkPrefixLength.toInt()) ?: continue
+                    found.putIfAbsent(prefix, iface.name)
                 }
             }
         } catch (_: Exception) {
@@ -159,7 +172,7 @@ class NetworkScanner(private val scannerClient: OkHttpClient) {
 
     companion object {
         const val SCAN_CONCURRENCY = 64
-        const val CONNECT_TIMEOUT_MS = 400
+        const val CONNECT_TIMEOUT_MS = 1000
 
         /**
          * Hosts that should always be probed in addition to the subnet sweep:
@@ -174,6 +187,16 @@ class NetworkScanner(private val scannerClient: OkHttpClient) {
             }
         } catch (_: Exception) {
             false
+        }
+
+        internal fun subnetPrefix(ip: String, prefixLength: Int): String? {
+            if (prefixLength !in 16..32) return null
+            val octets = ip.split('.')
+            if (octets.size != 4 || octets.any { it.toIntOrNull() !in 0..255 }) return null
+            val mask = (0xFFFFFFFFL shl (32 - prefixLength)) and 0xFFFFFFFFL
+            val network = longToIp(ipToLong(ip) and mask)
+            return if (prefixLength == 24) network.substringBeforeLast('.') + "."
+                else "$network/$prefixLength"
         }
 
         private fun ipToLong(ip: String): Long {

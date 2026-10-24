@@ -56,6 +56,87 @@ class DocumentAttachmentTest {
         }
     }
 
+    @Test fun oversizedImagesAndDocumentsAreRejectedBeforeParsing() = runBlocking {
+        for ((name, maxBytes, image) in listOf(
+            Triple("too-large.txt", AttachmentFactory.MAX_DOCUMENT_BYTES, false),
+            Triple("too-large.png", AttachmentFactory.MAX_IMAGE_BYTES, true),
+        )) {
+            val file = File(context.cacheDir, "captures/$name")
+            file.parentFile!!.mkdirs()
+            try {
+                java.io.RandomAccessFile(file, "rw").use { it.setLength(maxBytes.toLong() + 1) }
+                val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
+                try {
+                    if (image) AttachmentFactory.fromImage(context, uri) else AttachmentFactory.fromDocument(context, uri)
+                    fail("Oversized attachment accepted")
+                } catch (error: AttachmentImportException) {
+                    assertTrue(error.message!!.contains("too large"))
+                }
+            } finally { file.delete() }
+        }
+    }
+
+    @Test fun excessivePdfPagesAreRejectedAndLongTextIsMarkedTruncated() = runBlocking {
+        val bytes = java.io.ByteArrayOutputStream().use { out ->
+            com.tom_roush.pdfbox.pdmodel.PDDocument().use { pdf ->
+                repeat(DocumentExtractor.MAX_PDF_PAGES + 1) { pdf.addPage(com.tom_roush.pdfbox.pdmodel.PDPage()) }
+                pdf.save(out)
+            }
+            out.toByteArray()
+        }
+        try {
+            attachment("many-pages.pdf", bytes)
+            fail("Excessive PDF pages accepted")
+        } catch (error: AttachmentImportException) {
+            assertTrue(error.message!!.contains("too many pages"))
+        }
+        val text = attachment("long.txt", "a".repeat(AttachmentFactory.MAX_DOC_CHARS + 100).toByteArray())!!.text!!
+        assertEquals("a".repeat(AttachmentFactory.MAX_DOC_CHARS) + "\n\n[Document truncated]", text)
+    }
+
+    @Test fun pdfExtractionStopsAtTheTextCapAndMarksTruncation() = runBlocking {
+        val bytes = java.io.ByteArrayOutputStream().use { out ->
+            com.tom_roush.pdfbox.pdmodel.PDDocument().use { pdf ->
+                repeat(125) {
+                    val page = com.tom_roush.pdfbox.pdmodel.PDPage()
+                    pdf.addPage(page)
+                    com.tom_roush.pdfbox.pdmodel.PDPageContentStream(pdf, page).use { content ->
+                        content.beginText()
+                        content.setFont(com.tom_roush.pdfbox.pdmodel.font.PDType1Font.HELVETICA, 10f)
+                        content.newLineAtOffset(20f, 700f)
+                        content.showText("a".repeat(1000))
+                        content.endText()
+                    }
+                }
+                pdf.save(out)
+            }
+            out.toByteArray()
+        }
+        val text = attachment("long.pdf", bytes)!!.text!!
+        val marker = "\n\n[Document truncated]"
+        assertTrue(text.endsWith(marker))
+        assertEquals(AttachmentFactory.MAX_DOC_CHARS + marker.length, text.length)
+    }
+
+    @Test fun imagesJustAboveOutputLimitAreActuallyDownscaled() = runBlocking {
+        val bitmap = android.graphics.Bitmap.createBitmap(1800, 900, android.graphics.Bitmap.Config.ARGB_8888)
+        val file = File(context.cacheDir, "captures/resize.png")
+        file.parentFile!!.mkdirs()
+        try {
+            file.outputStream().use { bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it) }
+            val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
+            val image = AttachmentFactory.fromImage(context, uri)!!
+            val bytes = java.util.Base64.getDecoder().decode(image.base64)
+            val bounds = android.graphics.BitmapFactory.Options().apply { inJustDecodeBounds = true }
+            android.graphics.BitmapFactory.decodeByteArray(bytes, 0, bytes.size, bounds)
+            assertEquals(1568, bounds.outWidth)
+            assertEquals(784, bounds.outHeight)
+        } finally {
+            bitmap.recycle()
+            file.delete()
+        }
+    }
+
     @Test fun attachmentOnlyMessageIsPersistedAndSentAsText() = runBlocking {
         val pdf = instrumentation.context.assets.open("document.pdf").use { it.readBytes() }
         val document = attachment("send.pdf", pdf)!!

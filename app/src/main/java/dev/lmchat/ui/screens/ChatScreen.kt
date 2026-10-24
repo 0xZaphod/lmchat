@@ -101,6 +101,7 @@ import coil.compose.AsyncImage
 import dev.lmchat.ui.components.AssistantMarkdown
 import dev.lmchat.ui.theme.LMConnectionOk
 import dev.lmchat.LMChatApplication
+import dev.lmchat.data.util.AttachmentImportException
 import dev.lmchat.data.util.AttachmentFactory
 import dev.lmchat.domain.Attachment
 import dev.lmchat.domain.AttachmentKind
@@ -181,11 +182,9 @@ fun ChatScreen(
     ) { uri ->
         if (uri != null) {
             launchScope.launch {
-                val attachment = withContext(Dispatchers.IO) {
+                importAttachment(viewModel, "Couldn't read that image.") {
                     AttachmentFactory.fromImage(context, uri)
                 }
-                if (attachment != null) viewModel.addPendingAttachment(attachment)
-                else viewModel.notice("Couldn't read that image.")
             }
         }
     }
@@ -195,11 +194,9 @@ fun ChatScreen(
     ) { uri ->
         if (uri != null) {
             launchScope.launch {
-                val attachment = withContext(Dispatchers.IO) {
+                importAttachment(viewModel, "Couldn't extract text from that document.") {
                     AttachmentFactory.fromDocument(context, uri)
                 }
-                if (attachment != null) viewModel.addPendingAttachment(attachment)
-                else viewModel.notice("Couldn't extract text from that document.")
             }
         }
     }
@@ -219,11 +216,9 @@ fun ChatScreen(
                         "${context.packageName}.fileprovider",
                         file,
                     )
-                    val attachment = withContext(Dispatchers.IO) {
+                    importAttachment(viewModel, "Couldn't read the captured photo.") {
                         AttachmentFactory.fromImage(context, uri, file.name)
                     }
-                    if (attachment != null) viewModel.addPendingAttachment(attachment)
-                    else viewModel.notice("Couldn't read the captured photo.")
                 } finally {
                     file.delete()
                 }
@@ -1211,4 +1206,18 @@ private fun ServerDialog(
             }
         },
     )
+}
+
+private suspend fun importAttachment(
+    viewModel: ChatViewModel,
+    failureMessage: String,
+    load: suspend () -> Attachment?,
+) {
+    try {
+        val attachment = load()
+        if (attachment != null) viewModel.addPendingAttachment(attachment)
+        else viewModel.notice(failureMessage)
+    } catch (error: AttachmentImportException) {
+        viewModel.notice(error.message ?: failureMessage)
+    }
 }

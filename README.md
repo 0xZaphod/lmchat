@@ -14,8 +14,8 @@ In Settings, scan for a server or enter its address, then choose a model and sta
 
 - **Streaming chat** — watch replies arrive as the server generates them
 - **Markdown replies** — headings, emphasis, lists, quotes, links, tables, and monospace code; select and copy response text
-- **Images** — gallery and camera options appear when the selected model reports vision support or you enable **Allow images for this model** in the attachment menu; images are sent as data-URIs
-- **Documents** — attach PDF, TXT, MD, CSV, JSON, XML, HTML, or source files; text is extracted and inlined into the prompt
+- **Images** — imports are limited to 10 MiB per file; gallery and camera options appear when the selected model reports vision support or you enable **Allow images for this model** in the attachment menu; images are sent as data-URIs
+- **Documents** — attach PDF, TXT, MD, CSV, JSON, XML, HTML, or source files; text is extracted and inlined into the prompt (8 MiB per file, at most 200 PDF pages, extracted text capped at 120,000 characters)
 - **Network scanner** — finds compatible LLM servers on your local network, with common port shortcuts
 - **Multiple chats** — conversation history persisted locally (Room), rename & delete
 - **Saved servers** — keep a list of servers, switch per chat or set a default; each chat remembers its server address and port, while API keys and saved server settings are shared
@@ -32,6 +32,10 @@ The app connects to a server you run separately; it does not run models on the p
 LMChat checks the latest stable GitHub release when opened. There are no scheduled or background update checks. Settings also offers **Check for updates**. Tap **Update** to download the release APK, then **Install** to open Android’s confirmation screen. Android may first ask you to allow installations from LMChat. Downloads are stored in the app cache; interrupted downloads can be retried.
 
 Updating preserves local chats and settings. Updates must use the same signing key; debug builds cannot install official releases signed with a different key.
+
+## Privacy
+
+See [Privacy](PRIVACY.md) for chat transmission, local storage, credentials, Android backups, and GitHub update checks. Android backup and device transfer are disabled; uninstalling or clearing app storage loses saved chats and settings.
 
 ## Build
 

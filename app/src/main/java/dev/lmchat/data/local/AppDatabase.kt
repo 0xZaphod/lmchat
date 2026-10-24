@@ -15,7 +15,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         ServerEntity::class,
     ],
     version = 4,
-    exportSchema = false,
+    exportSchema = true,
 )
 abstract class AppDatabase : RoomDatabase() {
     abstract fun conversationDao(): ConversationDao
@@ -43,19 +43,18 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        /** Unknown schema versions fail without deleting conversations. */
+        fun build(context: Context, name: String): AppDatabase =
+            Room.databaseBuilder(context.applicationContext, AppDatabase::class.java, name)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
+                .build()
+
         @Volatile
         private var INSTANCE: AppDatabase? = null
 
         fun get(context: Context): AppDatabase =
             INSTANCE ?: synchronized(this) {
-                INSTANCE ?: Room.databaseBuilder(
-                    context.applicationContext,
-                    AppDatabase::class.java,
-                    "lmchat.db",
-                )
-                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
-                    .fallbackToDestructiveMigration(dropAllTables = true)
-                    .build()
+                INSTANCE ?: build(context, "lmchat.db")
                     .also { INSTANCE = it }
             }
     }

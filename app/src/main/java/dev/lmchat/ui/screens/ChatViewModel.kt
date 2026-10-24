@@ -43,6 +43,7 @@ class ChatViewModel(
     /** Live per-message text for in-flight responses (id -> full text). */
     private val liveText = MutableStateFlow<Map<String, String>>(emptyMap())
     private var retryingMessageId: String? = null
+    private var sendInProgress = false
     private var exitInProgress = false
     private var contextLimitLookupJob: Job? = null
     private var modelRefreshJob: Job? = null
@@ -261,6 +262,7 @@ class ChatViewModel(
     }
 
     fun send(userText: String): Boolean {
+        if (sendInProgress || retryingMessageId != null || isStreaming.value) return false
         val text = userText.trim()
         val attachments = pendingAttachments.value
         if (text.isEmpty() && attachments.isEmpty()) return false
@@ -278,6 +280,7 @@ class ChatViewModel(
         }
 
         refreshedContextDuringStream = false
+        sendInProgress = true
         viewModelScope.launch {
             try {
                 val conv = conversation.first() ?: return@launch
@@ -304,13 +307,15 @@ class ChatViewModel(
                 throw cancelled
             } catch (error: Exception) {
                 notice(error.message?.let { "Couldn't send message: $it" } ?: "Couldn't send message.")
+            } finally {
+                sendInProgress = false
             }
         }
         return true
     }
 
     fun retryResponse(assistantMessageId: String) {
-        if (isStreaming.value || retryingMessageId != null) return
+        if (sendInProgress || isStreaming.value || retryingMessageId != null) return
         val currentMessages = messages.value
         val responseIndex = currentMessages.indexOfLast { it.id == assistantMessageId }
         if (responseIndex != currentMessages.lastIndex || responseIndex < 0) return
@@ -364,7 +369,7 @@ class ChatViewModel(
     }
 
     fun stop() {
-        repo.stopStreaming()
+        repo.stopStreaming(conversationId)
     }
 
     fun addPendingAttachment(attachment: Attachment) {
@@ -435,7 +440,7 @@ class ChatViewModel(
 
     fun deleteConversation(onDone: () -> Unit) {
         viewModelScope.launch {
-            repo.stopStreaming()
+            repo.stopStreaming(conversationId)
             repo.deleteConversation(conversationId)
             onDone()
         }

@@ -69,8 +69,11 @@ interface MessageDao {
     @Query("SELECT * FROM messages WHERE conversationId = :conversationId AND status != 'done' LIMIT 1")
     suspend fun findActive(conversationId: String): MessageEntity?
 
-    @Query("SELECT * FROM messages WHERE status != 'done'")
+    @Query("SELECT * FROM messages WHERE status = 'streaming'")
     suspend fun findActiveAll(): List<MessageEntity>
+
+    @Query("UPDATE messages SET status = 'error', error = :error WHERE id = :id AND status = 'streaming'")
+    suspend fun interruptStreaming(id: String, error: String)
 
     @Query("SELECT * FROM messages WHERE conversationId = :conversationId ORDER BY createdAt DESC LIMIT 1")
     suspend fun latest(conversationId: String): MessageEntity?

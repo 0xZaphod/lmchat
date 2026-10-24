@@ -12,7 +12,9 @@
 
     <application
         android:name=".LMChatApplication"
-        android:allowBackup="true"
+        android:allowBackup="false"
+        android:fullBackupContent="@xml/backup_rules"
+        android:dataExtractionRules="@xml/data_extraction_rules"
         android:enableOnBackInvokedCallback="true"
         android:usesCleartextTraffic="true"
         android:icon="@mipmap/ic_launcher"

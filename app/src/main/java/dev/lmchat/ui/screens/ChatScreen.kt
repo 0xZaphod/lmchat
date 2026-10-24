@@ -99,10 +99,12 @@ import androidx.core.content.FileProvider
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
 import dev.lmchat.ui.components.AssistantMarkdown
+import dev.lmchat.ui.theme.LMConnectionOk
 import dev.lmchat.LMChatApplication
 import dev.lmchat.data.util.AttachmentFactory
 import dev.lmchat.domain.Attachment
 import dev.lmchat.domain.AttachmentKind
+import dev.lmchat.domain.ConnectionStatus
 import dev.lmchat.domain.ServerInfo
 import dev.lmchat.domain.serverPort
 import dev.lmchat.domain.ServerType
@@ -143,6 +145,7 @@ fun ChatScreen(
     val currentContextTokens by viewModel.currentContextTokens.collectAsState()
     val contextTokensEstimated by viewModel.contextTokensEstimated.collectAsState()
     val server by viewModel.server.collectAsState()
+    val connection by viewModel.connection.collectAsState()
 
     DisposableEffect(conversationId) {
         onDispose {
@@ -310,6 +313,9 @@ fun ChatScreen(
                         selected = selectedModel,
                         isStreaming = isStreaming,
                         onSelect = { viewModel.selectModel(it) },
+                    )
+                    ConnectionStatusButton(
+                        status = connection,
                         onOpenServer = { showServerDialog = true },
                     )
                     IconButton(onClick = { viewModel.refreshModels() }) {
@@ -436,6 +442,7 @@ fun ChatScreen(
     if (showServerDialog) {
         ServerDialog(
             savedServers = savedServers,
+            currentServer = server,
             initialHost = conversation?.host ?: (server?.host ?: ""),
             initialPort = conversation?.port ?: (server?.port ?: 0),
             initialApiKey = server?.apiKey.orEmpty(),
@@ -477,19 +484,35 @@ fun ChatScreen(
 /* ==================================================================== */
 
 @Composable
+private fun ConnectionStatusButton(
+    status: ConnectionStatus,
+    onOpenServer: () -> Unit,
+) {
+    val dotColor = when (status) {
+        ConnectionStatus.CONNECTED -> LMConnectionOk
+        ConnectionStatus.ERROR -> MaterialTheme.colorScheme.error
+        ConnectionStatus.CHECKING -> MaterialTheme.colorScheme.onSurfaceVariant
+    }
+    Box(Modifier.size(40.dp).clickable(onClick = onOpenServer)) {
+        Surface(
+            shape = CircleShape,
+            color = dotColor,
+            modifier = Modifier.size(14.dp).align(Alignment.Center),
+        ) {}
+    }
+}
+
+@Composable
 private fun ModelDropdown(
     models: List<String>,
     selected: String?,
     isStreaming: Boolean,
     onSelect: (String) -> Unit,
-    onOpenServer: () -> Unit,
 ) {
     var expanded by remember { mutableStateOf(false) }
     Box {
         Surface(
-            onClick = {
-                if (models.isEmpty()) onOpenServer() else expanded = true
-            },
+            onClick = { expanded = true },
             shape = RoundedCornerShape(16.dp),
             color = MaterialTheme.colorScheme.surfaceVariant,
         ) {
@@ -1069,6 +1092,7 @@ private fun TypingIndicator() {
 @Composable
 private fun ServerDialog(
     savedServers: List<dev.lmchat.data.local.ServerEntity>,
+    currentServer: ServerInfo?,
     initialHost: String,
     initialPort: Int,
     initialApiKey: String,
@@ -1132,12 +1156,14 @@ private fun ServerDialog(
                         verticalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
                         items(savedServers, key = { it.id }) { saved ->
+                            val isSelected = saved.info.baseUrl == currentServer?.baseUrl
                             Surface(
                                 onClick = {
                                     onConnect(saved.info)
                                 },
                                 shape = RoundedCornerShape(12.dp),
-                                color = MaterialTheme.colorScheme.surfaceVariant,
+                                color = if (isSelected) MaterialTheme.colorScheme.primaryContainer
+                                    else MaterialTheme.colorScheme.surfaceVariant,
                             ) {
                                 Column(Modifier.fillMaxWidth().padding(12.dp)) {
                                     Text(
@@ -1149,6 +1175,13 @@ private fun ServerDialog(
                                         style = MaterialTheme.typography.bodySmall,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     )
+                                    if (isSelected) {
+                                        Text(
+                                            "Current server",
+                                            style = MaterialTheme.typography.labelMedium,
+                                            color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                        )
+                                    }
                                 }
                             }
                         }

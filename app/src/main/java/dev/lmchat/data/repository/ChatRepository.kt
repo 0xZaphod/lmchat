@@ -84,6 +84,8 @@ class ChatRepository(
 
     suspend fun updateConversation(conv: ConversationEntity) = conversations.update(conv)
 
+    suspend fun updateModel(id: String, model: String?) = conversations.updateModel(id, model)
+
     suspend fun renameConversation(id: String, title: String) {
         conversations.updateTitle(id, title.trim().ifBlank { "Untitled" }, System.currentTimeMillis())
     }
@@ -281,7 +283,7 @@ class ChatRepository(
                     persistContextTokens()
                     // Never replace the pre-request snapshot: it contains stale
                     // token counts, titles, and possibly server settings.
-                    conversations.updateAfterResponse(conversation.id, model, System.currentTimeMillis())
+                    conversations.updateAfterResponse(conversation.id, System.currentTimeMillis())
                     if (text.isBlank() && error == null) {
                         // Nothing came back and there is no error: drop the empty placeholder.
                         messages.delete(assistantId)

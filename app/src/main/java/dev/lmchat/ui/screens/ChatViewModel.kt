@@ -8,6 +8,7 @@ import dev.lmchat.data.local.ConversationEntity
 import dev.lmchat.data.local.ServerEntity
 import dev.lmchat.domain.Attachment
 import dev.lmchat.domain.AttachmentKind
+import dev.lmchat.domain.ConnectionStatus
 import dev.lmchat.domain.ModelMetadata
 import dev.lmchat.domain.ServerType
 import dev.lmchat.domain.ServerInfo
@@ -87,6 +88,15 @@ class ChatViewModel(
     private data class MetadataResult(val server: ServerInfo, val model: String, val details: ModelMetadata)
     private val metadataResult = MutableStateFlow<MetadataResult?>(null)
 
+    /** Outcome of the server probe that last filled [models]; drives the top-bar dot. */
+    private enum class ProbeOutcome {
+        PENDING,
+        OK,
+        FAILED,
+    }
+
+    private val probeOutcome = MutableStateFlow(ProbeOutcome.PENDING)
+
     /**
      * Server resolution order:
      * (1) conversation host/port when present and valid;
@@ -130,6 +140,20 @@ class ChatViewModel(
 
     val server: StateFlow<ServerInfo?> =
         serverFlow.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
+
+    /**
+     * Live server connection status for the top-bar indicator: ERROR when no server
+     * resolves or the last probe failed, CHECKING while a probe is in flight.
+     */
+    val connection: StateFlow<ConnectionStatus> =
+        combine(serverFlow, probeOutcome) { s, outcome ->
+            when {
+                s == null -> ConnectionStatus.ERROR
+                outcome == ProbeOutcome.PENDING -> ConnectionStatus.CHECKING
+                outcome == ProbeOutcome.FAILED -> ConnectionStatus.ERROR
+                else -> ConnectionStatus.CONNECTED
+            }
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), ConnectionStatus.CHECKING)
 
     private val activeMetadata = combine(server, selectedModel, metadataResult) { s, model, result ->
         result?.takeIf { it.server == s && it.model == model }?.details
@@ -178,20 +202,26 @@ class ChatViewModel(
     fun refreshModels() {
         modelRefreshJob?.cancel()
         metadataResult.value = null
+        probeOutcome.value = ProbeOutcome.PENDING
         modelRefreshJob = viewModelScope.launch {
             val s = serverFlow.first { it != null } ?: return@launch
             val result = repo.probe(s)
             if (serverFlow.first() != s) return@launch
-            models.value = if (result.isCompatible) result.models else emptyList()
+            probeOutcome.value = if (result.isCompatible) ProbeOutcome.OK else ProbeOutcome.FAILED
+            if (!result.isCompatible) {
+                // A failed lookup says nothing about whether the saved model still exists.
+                notice(result.error ?: "Server unreachable")
+                return@launch
+            }
+            models.value = result.models
             // Keep the selection if the model still exists, otherwise pick first.
             val current = selectedModel.value
             if (current == null || current !in models.value) {
-                selectedModel.value = models.value.firstOrNull()
+                val replacement = models.value.firstOrNull()
+                selectedModel.value = replacement
+                repo.updateModel(conversationId, replacement)
             } else {
                 refreshContextLimit(force = true)
-            }
-            if (!result.isCompatible) {
-                notice(result.error ?: "Server unreachable")
             }
         }
     }
@@ -201,8 +231,7 @@ class ChatViewModel(
         if (selectedModel.value == model) refreshContextLimit(force = true)
         selectedModel.value = model
         viewModelScope.launch {
-            val conv = repo.observeConversation(conversationId).first() ?: return@launch
-            repo.updateConversation(conv.copy(model = model))
+            repo.updateModel(conversationId, model)
         }
     }
 

@@ -18,7 +18,7 @@ In Settings, scan for a server or enter its address, then choose a model and sta
 - **Documents** — attach PDF, TXT, MD, CSV, JSON, XML, HTML, or source files; text is extracted and inlined into the prompt
 - **Network scanner** — finds compatible LLM servers on your local network, with common port shortcuts
 - **Multiple chats** — conversation history persisted locally (Room), rename & delete
-- **Saved servers** — keep a list of servers, switch per chat or set a default
+- **Saved servers** — keep a list of servers, switch per chat or set a default; each chat remembers its server address and port, while API keys and saved server settings are shared
 - **Model picker** — choose from the server’s available models for each conversation
 
 ## Install

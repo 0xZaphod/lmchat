@@ -41,8 +41,11 @@ interface ConversationDao {
     @Query("UPDATE conversations SET contextTokens = :tokens, contextTokensEstimated = :estimated WHERE id = :id")
     suspend fun updateContextTokens(id: String, tokens: Int, estimated: Boolean = false)
 
-    @Query("UPDATE conversations SET updatedAt = :updatedAt, model = :model WHERE id = :id")
-    suspend fun updateAfterResponse(id: String, model: String, updatedAt: Long)
+    @Query("UPDATE conversations SET updatedAt = :updatedAt WHERE id = :id")
+    suspend fun updateAfterResponse(id: String, updatedAt: Long)
+
+    @Query("UPDATE conversations SET model = :model WHERE id = :id")
+    suspend fun updateModel(id: String, model: String?)
 
     @Query("DELETE FROM conversations WHERE id = :id")
     suspend fun delete(id: String)

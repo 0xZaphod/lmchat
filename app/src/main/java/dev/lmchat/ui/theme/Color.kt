@@ -24,5 +24,8 @@ val LMOnSecondaryContainer = Color(0xFFD5E3F4)
 val LMError = Color(0xFFF28B82)
 val LMOnError = Color(0xFF410E0B)
 
+// Top-bar connection indicator: green only when the last probe found a working server.
+val LMConnectionOk = Color(0xFF6FCF73)
+
 val LMAssistantBubble = Color(0xFF1E232C)
 val LMUserBubble = Color(0xFF2C4A7C)

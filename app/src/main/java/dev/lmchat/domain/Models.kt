@@ -103,3 +103,10 @@ data class ServerProbeResult(
     val models: List<String> = emptyList(),
     val error: String? = null,
 )
+
+/** Server connection state for the chat top-bar indicator. */
+enum class ConnectionStatus {
+    CONNECTED,
+    CHECKING,
+    ERROR,
+}

@@ -13,7 +13,6 @@ import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.foundation.gestures.scrollBy
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -81,14 +80,9 @@ import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
-import androidx.compose.ui.input.nestedscroll.NestedScrollSource
-import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
@@ -285,43 +279,13 @@ fun ChatScreen(
         )
     }
 
-    // Follow measured content growth, including asynchronous Markdown layout. Token
-    // updates must never restart an animation or take scrolling away from the user.
-    var followResponse by remember(conversationId) { mutableStateOf(true) }
-    val messageScrollConnection = remember(listState, conversationId) {
-        object : NestedScrollConnection {
-            override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
-                if (source == NestedScrollSource.UserInput && available.y > 0f) {
-                    followResponse = false
-                }
-                return Offset.Zero
-            }
-
-            override fun onPostScroll(
-                consumed: Offset,
-                available: Offset,
-                source: NestedScrollSource,
-            ): Offset {
-                if (consumed.y < 0f && !listState.canScrollForward) {
-                    followResponse = true
-                }
-                return Offset.Zero
-            }
-        }
-    }
-    LaunchedEffect(listState, conversationId) {
-        snapshotFlow {
-            Triple(listState.layoutInfo, followResponse, listState.isScrollInProgress)
-        }.collect { (layout, following, scrolling) ->
-            if (!following || scrolling || layout.totalItemsCount == 0) return@collect
-            val last = layout.visibleItemsInfo.lastOrNull() ?: return@collect
-            if (last.index < layout.totalItemsCount - 1) {
-                listState.scrollToItem(layout.totalItemsCount - 1)
-            } else {
-                val overflow = last.offset + last.size + layout.afterContentPadding -
-                    layout.viewportEndOffset
-                if (overflow > 0) listState.scrollBy(overflow.toFloat())
-            }
+    // Only position a newly opened conversation. Streaming content must never
+    // initiate scrolling: the user owns the viewport until they tap Latest.
+    var positionedConversation by remember(conversationId) { mutableStateOf(false) }
+    LaunchedEffect(messages.isNotEmpty(), conversationId) {
+        if (messages.isNotEmpty() && !positionedConversation) {
+            positionedConversation = true
+            listState.scrollToItem(messages.lastIndex)
         }
     }
 
@@ -390,8 +354,7 @@ fun ChatScreen(
                 state = listState,
                 modifier = Modifier
                     .weight(1f)
-                    .fillMaxWidth()
-                    .nestedScroll(messageScrollConnection),
+                    .fillMaxWidth(),
                 contentPadding = PaddingValues(horizontal = 12.dp, vertical = 16.dp),
             ) {
                 if (messages.isEmpty()) {
@@ -418,6 +381,21 @@ fun ChatScreen(
                 }
             }
 
+            if (messages.isNotEmpty()) {
+                TextButton(
+                    onClick = {
+                        launchScope.launch {
+                            // A single explicit jump also reaches the end of a reply
+                            // taller than the viewport, without following later tokens.
+                            listState.scrollToItem(messages.lastIndex, Int.MAX_VALUE)
+                        }
+                    },
+                    modifier = Modifier.align(Alignment.End),
+                ) {
+                    Text("Latest")
+                }
+            }
+
             // Pending attachments preview
             if (pending.isNotEmpty()) {
                 PendingAttachmentsRow(
@@ -434,7 +412,6 @@ fun ChatScreen(
                 canSend = text.isNotBlank() || pending.isNotEmpty(),
                 onSend = {
                     if (!isStreaming && viewModel.send(text)) {
-                        followResponse = true
                         text = ""
                     }
                 },

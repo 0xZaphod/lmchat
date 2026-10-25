@@ -4,12 +4,12 @@ import androidx.activity.ComponentActivity
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.hasScrollToIndexAction
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
-import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollToIndex
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.swipeDown
-import androidx.compose.ui.test.swipeUp
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import dev.lmchat.LMChatApplication
@@ -67,18 +67,17 @@ class StreamingScrollTest {
             compose.waitForIdle()
             delay(300)
             compose.waitForIdle()
-            val initialPosition = position()
             repeat(5) { index ->
                 reply += "\n\nUnsolicited viewport movement check $index."
                 dao.updateContent(replyId, reply, "streaming", null)
                 delay(100)
             }
             compose.waitForIdle()
-            assertEquals("Streaming alone must not initiate scrolling", initialPosition, position(), 0.0001f)
+            compose.onNodeWithContentDescription("Jump to latest message").assertDoesNotExist()
+            assertTrue("Streaming at the bottom must follow new text",
+                list.fetchSemanticsNode().config[SemanticsProperties.VerticalScrollAxisRange].let { it.value() == it.maxValue() })
             // Enter the oversized native Markdown view, then drag back while text
             // keeps arriving through the same Room -> ViewModel -> UI path as SSE.
-            list.performScrollToIndex(20)
-            list.performTouchInput { swipeUp(durationMillis = 500) }
             compose.waitForIdle()
             val beforeGesture = position()
             val updates = launch(Dispatchers.IO) {
@@ -108,9 +107,15 @@ class StreamingScrollTest {
             delay(300)
             compose.waitForIdle()
             assertEquals("Finishing a reply must not pull history back down", historyPosition, position(), 0.0001f)
-            compose.onNodeWithText("Latest").performClick()
+            compose.onNodeWithContentDescription("Jump to latest message").assertIsDisplayed().performClick()
             compose.waitForIdle()
-            assertTrue("Latest must reach the bottom", !list.fetchSemanticsNode().config[SemanticsProperties.VerticalScrollAxisRange].let { it.value() < it.maxValue() })
+            compose.onNodeWithContentDescription("Jump to latest message").assertDoesNotExist()
+            reply += "\n\nFollowing must resume after tapping the arrow.\n".repeat(20)
+            dao.updateContent(replyId, reply, "streaming", null)
+            delay(350)
+            compose.waitForIdle()
+            compose.onNodeWithContentDescription("Jump to latest message").assertDoesNotExist()
+            assertTrue("Arrow must resume following at the bottom", !list.fetchSemanticsNode().config[SemanticsProperties.VerticalScrollAxisRange].let { it.value() < it.maxValue() })
         } finally {
             container.chatRepository.deleteConversation(conversation.id)
             server.shutdown()

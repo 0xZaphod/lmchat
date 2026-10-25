@@ -72,6 +72,38 @@ class AssistantMarkdownTest {
         assertTrue(rendered.hasSpan("CodeBlockSpan"))
     }
 
+    @Test fun scrollingHoldsNativeTextSteadyAndCatchesUpWhenItStops() {
+        val text = mutableStateOf("Initial response")
+        val scrolling = mutableStateOf(false)
+        var view: TextView? = null
+        compose.setContent {
+            LMChatTheme { AssistantMarkdown(text.value, isScrolling = scrolling.value) }
+        }
+        fun findTextView(node: View): TextView? {
+            if (node is TextView) return node
+            if (node is ViewGroup) for (index in 0 until node.childCount) {
+                findTextView(node.getChildAt(index))?.let { return it }
+            }
+            return null
+        }
+        compose.runOnIdle {
+            view = findTextView(compose.activity.findViewById(android.R.id.content))
+            scrolling.value = true
+        }
+        compose.runOnIdle { text.value = "Newest **streamed** response" }
+        Thread.sleep(250)
+        compose.runOnIdle {
+            assertEquals("Initial response", view!!.text.toString())
+            assertTrue(view!!.isTextSelectable)
+            scrolling.value = false
+        }
+        compose.waitUntil(5000) {
+            var caughtUp = false
+            compose.runOnIdle { caughtUp = view?.text?.toString() == "Newest streamed response" }
+            caughtUp
+        }
+    }
+
     @Test fun streamingUpdatesReachSelectableNativeTextInsideAChatList() {
         val text = mutableStateOf("**Hel")
         var view: TextView? = null

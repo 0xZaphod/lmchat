@@ -34,7 +34,7 @@ import kotlinx.coroutines.withContext
 
 /** Selectable native Markdown text, with conflated background rendering during SSE updates. */
 @Composable
-fun AssistantMarkdown(text: String, modifier: Modifier = Modifier) {
+fun AssistantMarkdown(text: String, modifier: Modifier = Modifier, isScrolling: Boolean = false) {
     val context = LocalContext.current
     val colors = MaterialTheme.colorScheme
     val contentColor = colors.onSurface.toArgb()
@@ -46,9 +46,15 @@ fun AssistantMarkdown(text: String, modifier: Modifier = Modifier) {
         createMarkdownRenderer(context, contentColor, linkColor, codeColor, outlineColor)
     }
     val latestText by rememberUpdatedState(text)
+    val latestIsScrolling by rememberUpdatedState(isScrolling)
     val rendered by produceState<Spanned>(SpannableString(text), renderer) {
-        snapshotFlow { latestText }.conflate().collect { source ->
-            value = withContext(Dispatchers.Default) { renderer.toMarkdown(source) }
+        snapshotFlow { latestText to latestIsScrolling }.conflate().collect { (source, scrolling) ->
+            // Replacing selectable TextView text reflows the entire response and
+            // disturbs native touch/selection handling. Catch up after the gesture
+            // and fling instead of relaying every token into an active scroll.
+            if (scrolling) return@collect
+            val parsed = withContext(Dispatchers.Default) { renderer.toMarkdown(source) }
+            if (!latestIsScrolling) value = parsed
             // Conflate rapid tokens without delaying the final update indefinitely.
             delay(50)
         }
@@ -72,7 +78,11 @@ fun AssistantMarkdown(text: String, modifier: Modifier = Modifier) {
             view.setTextColor(contentColor)
             view.setLinkTextColor(linkColor)
             view.setTextSize(TypedValue.COMPLEX_UNIT_PX, fontSize)
-            view.setLineSpacing(lineSpacing.coerceAtLeast(0f), 1f)
+            val spacing = lineSpacing.coerceAtLeast(0f)
+            // setLineSpacing requests layout even when its arguments are unchanged.
+            if (view.lineSpacingExtra != spacing || view.lineSpacingMultiplier != 1f) {
+                view.setLineSpacing(spacing, 1f)
+            }
             if (view.tag !== rendered) {
                 renderer.setParsedMarkdown(view, rendered)
                 view.tag = rendered

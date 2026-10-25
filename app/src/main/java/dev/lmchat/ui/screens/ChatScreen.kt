@@ -45,6 +45,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Send
+import androidx.compose.material.icons.filled.ArrowDownward
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AttachFile
 import androidx.compose.material.icons.filled.Description
@@ -53,6 +54,7 @@ import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.Delete
+import androidx.compose.material3.SmallFloatingActionButton
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.SnackbarHost
@@ -74,15 +76,21 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
@@ -169,6 +177,8 @@ fun ChatScreen(
     val focusManager = LocalFocusManager.current
 
     val listState = rememberLazyListState()
+    val showJumpToBottom by remember { derivedStateOf { listState.canScrollForward } }
+    val isScrolling by remember { derivedStateOf { listState.isScrollInProgress } }
     val launchScope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
 
@@ -279,13 +289,34 @@ fun ChatScreen(
         )
     }
 
-    // Only position a newly opened conversation. Streaming content must never
-    // initiate scrolling: the user owns the viewport until they tap Latest.
-    var positionedConversation by remember(conversationId) { mutableStateOf(false) }
-    LaunchedEffect(messages.isNotEmpty(), conversationId) {
-        if (messages.isNotEmpty() && !positionedConversation) {
-            positionedConversation = true
-            listState.scrollToItem(messages.lastIndex)
+    var followResponse by remember(conversationId) { mutableStateOf(true) }
+    val messageScrollConnection = remember(listState, conversationId) {
+        object : NestedScrollConnection {
+            override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
+                if (source == NestedScrollSource.UserInput && available.y > 0f) {
+                    followResponse = false
+                }
+                return Offset.Zero
+            }
+        }
+    }
+    LaunchedEffect(listState, conversationId) {
+        snapshotFlow {
+            Triple(listState.layoutInfo, listState.isScrollInProgress, followResponse)
+        }.collect { (_, scrolling, following) ->
+            if (scrolling) return@collect
+            // Reaching the bottom manually resumes following before Markdown
+            // catches up with text held back during the user's gesture.
+            if (!following && !listState.canScrollForward) followResponse = true
+            if (!followResponse) return@collect
+            // Never scroll from a layout notification itself: native TextView
+            // remeasurement can still be on the stack. Coalesce growth and run
+            // on a later main-loop turn, then recheck user ownership.
+            delay(16)
+            if (followResponse && !listState.isScrollInProgress && listState.canScrollForward) {
+                val count = listState.layoutInfo.totalItemsCount
+                if (count > 0) listState.scrollToItem(count - 1, Int.MAX_VALUE)
+            }
         }
     }
 
@@ -349,50 +380,52 @@ fun ChatScreen(
                 contextLimit = contextLimit,
                 contextLimitLoading = contextLimitLoading,
             )
-            // Messages
-            LazyColumn(
-                state = listState,
-                modifier = Modifier
-                    .weight(1f)
-                    .fillMaxWidth(),
-                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 16.dp),
-            ) {
-                if (messages.isEmpty()) {
-                    item {
-                        Box(Modifier.fillMaxWidth().padding(vertical = 48.dp)) {
-                            Text(
-                                "Start the conversation — the model will stream its reply here.",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.align(Alignment.Center),
-                                textAlign = TextAlign.Center,
-                            )
+            Box(Modifier.weight(1f).fillMaxWidth()) {
+                LazyColumn(
+                    state = listState,
+                    modifier = Modifier.fillMaxSize().nestedScroll(messageScrollConnection),
+                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 16.dp),
+                ) {
+                    if (messages.isEmpty()) {
+                        item {
+                            Box(Modifier.fillMaxWidth().padding(vertical = 48.dp)) {
+                                Text(
+                                    "Start the conversation — the model will stream its reply here.",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.align(Alignment.Center),
+                                    textAlign = TextAlign.Center,
+                                )
+                            }
                         }
                     }
+                    itemsIndexed(messages, key = { _, message -> message.id }) { index, message ->
+                        val canRetry = index == messages.lastIndex &&
+                            message.isAssistant &&
+                            message.status == "error"
+                        MessageBubble(
+                            message = message,
+                            isScrolling = isScrolling,
+                            onRetry = if (canRetry) ({ viewModel.retryResponse(message.id) }) else null,
+                        )
+                    }
                 }
-                itemsIndexed(messages, key = { _, message -> message.id }) { index, message ->
-                    val canRetry = index == messages.lastIndex &&
-                        message.isAssistant &&
-                        message.status == "error"
-                    MessageBubble(
-                        message = message,
-                        onRetry = if (canRetry) ({ viewModel.retryResponse(message.id) }) else null,
-                    )
-                }
-            }
 
-            if (messages.isNotEmpty()) {
-                TextButton(
-                    onClick = {
-                        launchScope.launch {
-                            // A single explicit jump also reaches the end of a reply
-                            // taller than the viewport, without following later tokens.
-                            listState.scrollToItem(messages.lastIndex, Int.MAX_VALUE)
-                        }
-                    },
-                    modifier = Modifier.align(Alignment.End),
-                ) {
-                    Text("Latest")
+                if (showJumpToBottom) {
+                    SmallFloatingActionButton(
+                        onClick = {
+                            followResponse = true
+                            launchScope.launch {
+                                listState.scrollToItem(messages.lastIndex, Int.MAX_VALUE)
+                            }
+                        },
+                        modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 12.dp),
+                        shape = CircleShape,
+                        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                        contentColor = MaterialTheme.colorScheme.onSurface,
+                    ) {
+                        Icon(Icons.Default.ArrowDownward, contentDescription = "Jump to latest message")
+                    }
                 }
             }
 
@@ -412,6 +445,7 @@ fun ChatScreen(
                 canSend = text.isNotBlank() || pending.isNotEmpty(),
                 onSend = {
                     if (!isStreaming && viewModel.send(text)) {
+                        followResponse = true
                         text = ""
                     }
                 },
@@ -947,7 +981,7 @@ private fun decodeStoredImage(base64: String?): ImageBitmap? {
 /* ---------------- Message bubble ---------------- */
 
 @Composable
-private fun MessageBubble(message: UiMessage, onRetry: (() -> Unit)?) {
+private fun MessageBubble(message: UiMessage, isScrolling: Boolean, onRetry: (() -> Unit)?) {
     val isUser = message.isUser
     val bubbleColor =
         if (isUser) MaterialTheme.colorScheme.primaryContainer
@@ -1027,7 +1061,7 @@ private fun MessageBubble(message: UiMessage, onRetry: (() -> Unit)?) {
                     .padding(horizontal = 14.dp, vertical = 10.dp)
                     .widthIn(max = 560.dp)
                 if (message.isAssistant) {
-                    AssistantMarkdown(message.content, modifier = contentModifier)
+                    AssistantMarkdown(message.content, modifier = contentModifier, isScrolling = isScrolling)
                 } else {
                     SelectionContainer {
                         Text(

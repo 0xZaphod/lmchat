@@ -9,7 +9,10 @@ import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.AnimatedContentTransitionScope
 import androidx.compose.animation.core.tween
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.compose.NavHost
@@ -55,11 +58,18 @@ private fun LMChatApp(updates: dev.lmchat.ui.screens.UpdateViewModel) {
     val needsServerSetup = configuredHost.isBlank() ||
         configuredHost.equals("127.0.0.1", ignoreCase = true) ||
         configuredHost.equals("localhost", ignoreCase = true)
-    val startDestination = rememberSaveable { if (needsServerSetup) "settings" else "chats" }
+    var initialSetupHandled by rememberSaveable { mutableStateOf(false) }
+
+    LaunchedEffect(Unit) {
+        if (!initialSetupHandled) {
+            initialSetupHandled = true
+            if (needsServerSetup) navController.navigate("settings")
+        }
+    }
 
     NavHost(
         navController = navController,
-        startDestination = startDestination,
+        startDestination = "chats",
         // Keep route pushes still, but retain pop animation so predictive back can
         // reveal the destination beneath the current screen during the gesture.
         enterTransition = { EnterTransition.None },

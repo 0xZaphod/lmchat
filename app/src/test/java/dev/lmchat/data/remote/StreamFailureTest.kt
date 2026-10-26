@@ -70,4 +70,16 @@ class StreamFailureTest {
         assertNull(complete)
         assertNotNull(failure)
     }
+
+    @Test fun brokenStreamAfterRoleFrameReportsStreamFailureInsteadOfJsonError() {
+        val body = "data: {\"choices\":[{\"delta\":{\"role\":\"assistant\"},\"finish_reason\":null}]}\n\n" +
+            ": " + "keepalive".repeat(1024) + "\n\n"
+        val (tokens, complete, failure) = stream(MockResponse()
+            .setHeader("Content-Type", "text/event-stream").setBody(body)
+            .setSocketPolicy(SocketPolicy.DISCONNECT_DURING_RESPONSE_BODY))
+        assertEquals("", tokens)
+        assertNull(complete)
+        assertTrue(failure?.message.orEmpty().contains("before sending any text"))
+        assertNotNull(failure?.cause)
+    }
 }

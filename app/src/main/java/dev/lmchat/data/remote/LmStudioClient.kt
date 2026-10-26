@@ -100,6 +100,11 @@ class LmStudioClient(private val client: OkHttpClient) {
         val listener = object : okhttp3.sse.EventSourceListener() {
             private val buffer = StringBuilder()
             private var receivedEnd = false
+            private var openedStream = false
+
+            override fun onOpen(eventSource: EventSource, response: Response) {
+                openedStream = true
+            }
 
             override fun onEvent(eventSource: EventSource, id: String?, type: String?, data: String) {
                 if (data == "[DONE]") {
@@ -138,6 +143,13 @@ class LmStudioClient(private val client: OkHttpClient) {
                     // The repository already has these tokens; retain them as an error,
                     // rather than silently treating a broken stream as a complete reply.
                     onError(IOException("Connection lost before the response finished. Please retry.", t))
+                    response?.close()
+                    return
+                }
+                if (openedStream) {
+                    // SSE has already consumed the body, even if only a role or
+                    // keep-alive frame arrived. It cannot be read again as JSON.
+                    onError(IOException("Server closed the response before sending any text. Check the server logs and selected model, then retry.", t))
                     response?.close()
                     return
                 }

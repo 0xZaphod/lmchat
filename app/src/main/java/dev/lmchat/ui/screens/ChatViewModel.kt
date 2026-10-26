@@ -214,7 +214,10 @@ class ChatViewModel(
                 notice(result.error ?: "Server unreachable")
                 return@launch
             }
-            models.value = result.models
+            // Explicit tags/aliases may be accepted by the server without being
+            // advertised in /v1/models (for example a registry tag for DFlash).
+            val preferred = settings.preferredModel.trim().takeIf { it.isNotEmpty() }
+            models.value = (listOfNotNull(preferred) + result.models).distinct()
             // Keep the selection if the model still exists, otherwise pick first.
             val current = selectedModel.value
             if (current == null || current !in models.value) {

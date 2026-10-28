@@ -41,6 +41,8 @@ Describe changes that matter to users. Keep notes short. Omit debug/development 
 
 Before uploading an APK, run the unit tests, debug build, connected Android tests, and release build. Verify the actual APK with the Android SDK's `apksigner verify --verbose --print-certs <apk>` and compare its certificate SHA-256 digest with the previous public APK. Checking for `META-INF/*.RSA` or `*.SF` ZIP entries is insufficient: APK v2 signatures live in a separate signing block.
 
+On PIN/password-protected devices, the background-streaming test keeps the screen on so later UI tests can run. Unsecured emulators also exercise screen-off streaming automatically. To include screen-off coverage on a secured device, pass `-Pandroid.testInstrumentationRunnerArguments.allowScreenLock=true`, run that test last, and unlock the device afterward.
+
 The Android tests cover bounded imports, document sending, concurrent chats, duplicate-send rejection, cancellation/retry, recovery of persisted streaming rows after reopening the database, and migrations from database versions 1–3. Reopening a database simulates persisted process-death state; it does not exercise Android killing the app process.
 
 Also run these manual checks on the release candidate, using synthetic conversations and a test server:

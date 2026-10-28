@@ -1,5 +1,6 @@
 package dev.lmchat.data.repository
 
+import android.app.KeyguardManager
 import android.content.Context
 import android.os.PowerManager
 import androidx.activity.ComponentActivity
@@ -81,12 +82,15 @@ class BackgroundStreamingTest {
         }
     }
 
-    @Test fun homeAndScreenOffKeepReceivingUntilCompletionAndReleaseService() = runBlocking {
+    @Test fun backgroundRepliesKeepReceivingUntilCompletionAndReleaseService() = runBlocking {
         val server = MockWebServer().apply { start() }
         val repo = container.chatRepository
         val info = ServerInfo(server.url("/").toString(), server.port)
         val chat = repo.createConversation(info, "background-test", null)
         val power = context.getSystemService(PowerManager::class.java)
+        // A secure keyguard cannot be dismissed by the test and would block later UI cases.
+        val turnScreenOff = !context.getSystemService(KeyguardManager::class.java).isDeviceSecure ||
+            InstrumentationRegistry.getArguments().getString("allowScreenLock") == "true"
         val frame = "data: {\"choices\":[{\"delta\":{\"content\":\"chunk \"}}]}\n\n"
         server.enqueue(MockResponse().setHeader("Content-Type", "text/event-stream")
             .setBody(frame.repeat(14) + "data: [DONE]\n\n")
@@ -107,11 +111,13 @@ class BackgroundStreamingTest {
             shell("input keyevent KEYCODE_HOME")
             delay(2500)
             assertTrue("Reply must keep growing after Home", content().length > beforeHome.length)
-            val beforeLock = content()
-            shell("input keyevent KEYCODE_SLEEP")
-            awaitCondition { !power.isInteractive }
-            delay(2500)
-            assertTrue("Reply must keep growing with the screen off", content().length > beforeLock.length)
+            if (turnScreenOff) {
+                val beforeLock = content()
+                shell("input keyevent KEYCODE_SLEEP")
+                awaitCondition { !power.isInteractive }
+                delay(2500)
+                assertTrue("Reply must keep growing with the screen off", content().length > beforeLock.length)
+            }
             val final = withTimeout(25000) {
                 repo.observeMessages(chat.id).first { it.lastOrNull()?.status == "done" }.last()
             }
@@ -121,8 +127,10 @@ class BackgroundStreamingTest {
             awaitCondition { !container.streamingKeepAlive.serviceRunning }
             assertTrue(container.streamingKeepAlive.activeChats.value.isEmpty())
         } finally {
-            shell("input keyevent KEYCODE_WAKEUP")
-            shell("wm dismiss-keyguard")
+            if (turnScreenOff) {
+                shell("input keyevent KEYCODE_WAKEUP")
+                shell("wm dismiss-keyguard")
+            }
             activity.close()
             repo.stopStreaming(chat.id)
             withTimeout(10000) {

@@ -50,6 +50,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AttachFile
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Image
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material.icons.outlined.Close
@@ -143,6 +144,7 @@ fun ChatScreen(
     val conversation by viewModel.conversation.collectAsState()
     val messages by viewModel.messages.collectAsState()
     val isStreaming by viewModel.isStreaming.collectAsState()
+    val isBusy by viewModel.isBusy.collectAsState()
     val pending by viewModel.pendingAttachments.collectAsState()
     val notice by viewModel.notice.collectAsState()
     val models by viewModel.models.collectAsState()
@@ -169,6 +171,10 @@ fun ChatScreen(
         }
     }
 
+    var editTarget by remember { mutableStateOf<UiMessage?>(null) }
+    var editText by remember { mutableStateOf("") }
+    var resendTarget by remember { mutableStateOf<UiMessage?>(null) }
+    var deleteTarget by remember { mutableStateOf<UiMessage?>(null) }
     var text by remember { mutableStateOf("") }
     var showServerDialog by remember { mutableStateOf(false) }
     var showDeleteDialog by remember { mutableStateOf(false) }
@@ -406,7 +412,14 @@ fun ChatScreen(
                         MessageBubble(
                             message = message,
                             isScrolling = isScrolling,
-                            onRetry = if (canRetry) ({ viewModel.retryResponse(message.id) }) else null,
+                            onRetry = if (canRetry && !isBusy) ({ viewModel.retryResponse(message.id) }) else null,
+                            actionsEnabled = !isBusy,
+                            onResend = { resendTarget = message },
+                            onEdit = if (message.isUser) ({
+                                editTarget = message
+                                editText = message.content
+                            }) else null,
+                            onDelete = { deleteTarget = message },
                         )
                     }
                 }
@@ -442,7 +455,7 @@ fun ChatScreen(
                 text = text,
                 onTextChange = { text = it },
                 isStreaming = isStreaming,
-                canSend = text.isNotBlank() || pending.isNotEmpty(),
+                canSend = !isBusy && (text.isNotBlank() || pending.isNotEmpty()),
                 onSend = {
                     if (!isStreaming && viewModel.send(text)) {
                         followResponse = true
@@ -503,6 +516,56 @@ fun ChatScreen(
                 showServerDialog = false
                 onOpenScanner()
             },
+        )
+    }
+
+    editTarget?.let { target ->
+        AlertDialog(
+            onDismissRequest = { editTarget = null },
+            title = { Text("Edit and resend") },
+            text = {
+                Column {
+                    Text("Messages after this one will be deleted and a new reply generated.")
+                    TextField(value = editText, onValueChange = { editText = it },
+                        label = { Text("Message") }, modifier = Modifier.fillMaxWidth())
+                }
+            },
+            confirmButton = {
+                TextButton(enabled = !isBusy && (editText.isNotBlank() || target.attachments.isNotEmpty()),
+                    onClick = {
+                        viewModel.editAndResend(target.id, editText)
+                        editTarget = null
+                    }) { Text("Resend") }
+            },
+            dismissButton = { TextButton(onClick = { editTarget = null }) { Text("Cancel") } },
+        )
+    }
+    resendTarget?.let { target ->
+        AlertDialog(
+            onDismissRequest = { resendTarget = null },
+            title = { Text("Regenerate reply?") },
+            text = { Text("The reply and all later messages will be deleted and a new reply generated.") },
+            confirmButton = {
+                TextButton(enabled = !isBusy, onClick = {
+                    viewModel.resend(target)
+                    resendTarget = null
+                }) { Text("Regenerate") }
+            },
+            dismissButton = { TextButton(onClick = { resendTarget = null }) { Text("Cancel") } },
+        )
+    }
+    deleteTarget?.let { target ->
+        AlertDialog(
+            onDismissRequest = { deleteTarget = null },
+            title = { Text("Delete this message?") },
+            text = { Text("This message and its attachments will be permanently deleted.") },
+            confirmButton = {
+                TextButton(enabled = !isBusy, onClick = {
+                    viewModel.deleteMessage(target.id)
+                    deleteTarget = null
+                }) { Text("Delete", color = MaterialTheme.colorScheme.error) }
+            },
+            dismissButton = { TextButton(onClick = { deleteTarget = null }) { Text("Cancel") } },
         )
     }
 
@@ -981,7 +1044,16 @@ private fun decodeStoredImage(base64: String?): ImageBitmap? {
 /* ---------------- Message bubble ---------------- */
 
 @Composable
-private fun MessageBubble(message: UiMessage, isScrolling: Boolean, onRetry: (() -> Unit)?) {
+private fun MessageBubble(
+    message: UiMessage,
+    isScrolling: Boolean,
+    onRetry: (() -> Unit)?,
+    actionsEnabled: Boolean,
+    onResend: () -> Unit,
+    onEdit: (() -> Unit)?,
+    onDelete: () -> Unit,
+) {
+    var showActions by remember(message.id) { mutableStateOf(false) }
     val isUser = message.isUser
     val bubbleColor =
         if (isUser) MaterialTheme.colorScheme.primaryContainer
@@ -1083,6 +1155,27 @@ private fun MessageBubble(message: UiMessage, isScrolling: Boolean, onRetry: (()
                 color = MaterialTheme.colorScheme.error,
                 style = MaterialTheme.typography.labelLarge,
             )
+        }
+        Box {
+            IconButton(onClick = { showActions = true }, enabled = actionsEnabled) {
+                Icon(Icons.Default.MoreVert, contentDescription = "Message actions")
+            }
+            DropdownMenu(expanded = showActions && actionsEnabled, onDismissRequest = { showActions = false }) {
+                DropdownMenuItem(text = { Text("Regenerate reply") }, onClick = {
+                    showActions = false
+                    onResend()
+                })
+                if (onEdit != null) {
+                    DropdownMenuItem(text = { Text("Edit and resend") }, onClick = {
+                        showActions = false
+                        onEdit()
+                    })
+                }
+                DropdownMenuItem(text = { Text("Delete message") }, onClick = {
+                    showActions = false
+                    onDelete()
+                })
+            }
         }
         if (onRetry != null) {
             TextButton(onClick = onRetry) {

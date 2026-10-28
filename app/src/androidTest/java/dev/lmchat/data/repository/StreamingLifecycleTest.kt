@@ -99,6 +99,33 @@ class StreamingLifecycleTest {
         }
     }
 
+    @Test fun historyMutationsInvalidateContextAndCascadeAttachments() = runBlocking {
+        withRepository { repo, db, _, info ->
+            val chat = repo.createConversation(info, "model", null)
+            val dao = db.messageDao()
+            dao.insert(MessageEntity("kept", chat.id, "user", "Prompt", 1))
+            dao.insert(MessageEntity("deleted", chat.id, "assistant", "Reply", 2))
+            db.attachmentDao().insert(dev.lmchat.data.local.AttachmentEntity(
+                "attachment", "deleted", "document", "sample.txt", "text/plain", "Body"))
+            db.conversationDao().updateContextTokens(chat.id, 2000)
+            repo.deleteMessage("deleted")
+            assertNull(db.conversationDao().getById(chat.id)?.contextTokens)
+            val attachmentCount = db.openHelper.readableDatabase.query("SELECT COUNT(*) FROM attachments").use {
+                it.moveToFirst(); it.getInt(0)
+            }
+            assertEquals(0, attachmentCount)
+            db.conversationDao().updateContextTokens(chat.id, 1000)
+            repo.updateMessageContent("kept", "Edited prompt")
+            assertNull(db.conversationDao().getById(chat.id)?.contextTokens)
+            dao.insert(MessageEntity("later", chat.id, "assistant", "Later reply", 3))
+            db.conversationDao().updateContextTokens(chat.id, 3000)
+            repo.deleteMessagesAfter(chat.id, "kept")
+            assertNull(db.conversationDao().getById(chat.id)?.contextTokens)
+            assertEquals(listOf("kept"), repo.observeMessages(chat.id).first().map { it.id })
+            assertEquals("Edited prompt", repo.observeMessages(chat.id).first().single().content)
+        }
+    }
+
     @Test fun reopeningDatabaseRecoversPartialRepliesWithoutOverwritingExistingErrors() = runBlocking {
         val name = "stream-recovery.db"
         context.deleteDatabase(name)

@@ -117,7 +117,27 @@ class ChatRepository(
     fun observeMessages(conversationId: String): Flow<List<UiMessage>> =
         messages.observeByConversation(conversationId).map { list -> list.map { it.toUi() } }
 
-    suspend fun deleteMessage(id: String) = messages.delete(id)
+    suspend fun deleteMessage(id: String) = db.withTransaction {
+        val conversationId = messages.conversationIdForMessage(id) ?: return@withTransaction
+        messages.delete(id) // Foreign-key cascade also removes attachments.
+        conversations.invalidateContextTokens(conversationId)
+    }
+
+    /**
+     * Remove every message (and its attachments) after the given one, keeping the
+     * given message and everything before it. Powers edit-&-resend and resend.
+     */
+    suspend fun deleteMessagesAfter(conversationId: String, afterId: String) = db.withTransaction {
+        messages.deleteAfter(afterId, conversationId)
+        conversations.invalidateContextTokens(conversationId)
+    }
+
+    /** Overwrite a stored message's text in place (edit-&-resend). */
+    suspend fun updateMessageContent(id: String, content: String) = db.withTransaction {
+        val conversationId = messages.conversationIdForMessage(id) ?: return@withTransaction
+        messages.updateContent(id, content, "done", null)
+        conversations.invalidateContextTokens(conversationId)
+    }
 
     /** Mark any "streaming" rows (left over from a crash/process death) as interrupted. */
     suspend fun cleanupStaleStreaming() {

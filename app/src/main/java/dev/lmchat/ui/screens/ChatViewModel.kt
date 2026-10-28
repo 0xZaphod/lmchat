@@ -43,7 +43,10 @@ class ChatViewModel(
     /** Live per-message text for in-flight responses (id -> full text). */
     private val liveText = MutableStateFlow<Map<String, String>>(emptyMap())
     private var retryingMessageId: String? = null
-    private var sendInProgress = false
+    private val operationInProgress = MutableStateFlow(false)
+    private var sendInProgress: Boolean
+        get() = operationInProgress.value
+        set(value) { operationInProgress.value = value }
     private var exitInProgress = false
     private var contextLimitLookupJob: Job? = null
     private var modelRefreshJob: Job? = null
@@ -63,6 +66,9 @@ class ChatViewModel(
     val isStreaming: StateFlow<Boolean> =
         messages.map { list -> list.any { it.status == "streaming" } }
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
+
+    val isBusy = combine(isStreaming, operationInProgress) { streaming, operation -> streaming || operation }
+        .stateIn(viewModelScope, SharingStarted.Eagerly, false)
 
     /** Attachments waiting to be sent with the next message. */
     val pendingAttachments = MutableStateFlow<List<Attachment>>(emptyList())
@@ -341,6 +347,7 @@ class ChatViewModel(
             }
 
         refreshedContextDuringStream = false
+        sendInProgress = true
         retryingMessageId = assistantMessageId
         viewModelScope.launch {
             try {
@@ -367,6 +374,113 @@ class ChatViewModel(
                 notice(error.message?.let { "Couldn't retry response: $it" } ?: "Couldn't retry response.")
             } finally {
                 retryingMessageId = null
+                sendInProgress = false
+            }
+        }
+    }
+
+    /** Remove a single message (and its attachments) from the conversation. */
+    fun deleteMessage(messageId: String) {
+        if (isStreaming.value || sendInProgress || retryingMessageId != null) return
+        sendInProgress = true
+        viewModelScope.launch {
+            try {
+                repo.deleteMessage(messageId)
+                notice("Message deleted")
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (error: Exception) {
+                notice(error.message?.let { "Couldn't delete message: $it" } ?: "Couldn't delete message.")
+            } finally {
+                sendInProgress = false
+            }
+        }
+    }
+
+    /**
+     * Resend: regenerate the reply to a message. A user message reuses its current
+     * prompt; an assistant message regenerates that reply from its prompting turn.
+     */
+    fun resend(message: UiMessage) {
+        val userMessage = if (message.isUser) message
+        else messages.value.subList(
+            0, maxOf(messages.value.indexOfFirst { it.id == message.id }, 0),
+        ).lastOrNull { it.isUser } ?: run {
+            notice("Nothing to regenerate.")
+            return
+        }
+        regenerateFromUser(userMessage.id, null)
+    }
+
+    /**
+     * Edit a user message and auto-resend: replace its text, drop the reply that
+     * followed it, and regenerate from the edited prompt.
+     */
+    fun editAndResend(userMessageId: String, newText: String) {
+        regenerateFromUser(userMessageId, newText.trim())
+    }
+
+    /**
+     * Truncate the conversation after a user message and regenerate its reply.
+     *
+     * @param editedText the new prompt text, or null to resend the existing one.
+     */
+    private fun regenerateFromUser(userMessageId: String, editedText: String?) {
+        if (isStreaming.value || sendInProgress || retryingMessageId != null) return
+        val current = messages.value
+        val index = current.indexOfFirst { it.id == userMessageId }
+        if (index < 0) return
+        val userMsg = current[index]
+        if (!userMsg.isUser) return
+
+        val promptText = editedText ?: userMsg.content
+        if (promptText.isBlank() && userMsg.attachments.isEmpty()) {
+            notice("Message text is empty.")
+            return
+        }
+        if (!canSendImages(current.take(index + 1).flatMap { it.attachments })) return
+
+        val s = server.value ?: run {
+            notice("No server configured — set one in the menu.")
+            return
+        }
+        val model = selectedModel.value
+            ?: settings.preferredModel.takeIf { it.isNotBlank() }
+            ?: run {
+                notice("No model available — connect to the server and pick one.")
+                return
+            }
+
+        refreshedContextDuringStream = false
+        sendInProgress = true
+        viewModelScope.launch {
+            try {
+                if (editedText != null && editedText != userMsg.content) {
+                    repo.updateMessageContent(userMessageId, editedText)
+                }
+                repo.deleteMessagesAfter(conversationId, userMessageId)
+                val conv = conversation.first() ?: return@launch
+                val assistantId = repo.sendChat(
+                    conversation = conv,
+                    server = s,
+                    model = model,
+                    userText = promptText,
+                    userAttachments = userMsg.attachments,
+                    persistUserMessage = false,
+                    onProgress = ::onStreamProgress,
+                )
+                repo.observeMessages(conversationId).first { list ->
+                    val row = list.find { it.id == assistantId }
+                    row == null || row.status != "streaming"
+                }
+                liveText.value = liveText.value - assistantId
+                refreshContextLimit()
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (error: Exception) {
+                notice(error.message?.let { "Couldn't regenerate: $it" } ?: "Couldn't regenerate.")
+            } finally {
+                sendInProgress = false
             }
         }
     }

@@ -41,6 +41,9 @@ interface ConversationDao {
     @Query("UPDATE conversations SET contextTokens = :tokens, contextTokensEstimated = :estimated WHERE id = :id")
     suspend fun updateContextTokens(id: String, tokens: Int, estimated: Boolean = false)
 
+    @Query("UPDATE conversations SET contextTokens = NULL, contextTokensEstimated = 1 WHERE id = :id")
+    suspend fun invalidateContextTokens(id: String)
+
     @Query("UPDATE conversations SET updatedAt = :updatedAt WHERE id = :id")
     suspend fun updateAfterResponse(id: String, updatedAt: Long)
 
@@ -84,8 +87,14 @@ interface MessageDao {
     @Query("SELECT COUNT(*) FROM messages WHERE conversationId = :conversationId")
     suspend fun countByConversation(conversationId: String): Int
 
+    @Query("SELECT conversationId FROM messages WHERE id = :id")
+    suspend fun conversationIdForMessage(id: String): String?
+
     @Query("DELETE FROM messages WHERE id = :id")
     suspend fun delete(id: String)
+
+    @Query("DELETE FROM messages WHERE conversationId = :conversationId AND rowid > (SELECT rowid FROM messages WHERE id = :afterId)")
+    suspend fun deleteAfter(afterId: String, conversationId: String)
 }
 
 @Dao

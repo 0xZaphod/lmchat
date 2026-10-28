@@ -10,6 +10,8 @@ Saved chats, attachment copies, server addresses, API keys, and settings are sto
 
 Deleting a chat removes its messages and saved attachments from the app database. It does not delete original files, copies retained by a server, or guarantee forensic erasure from storage. Uninstalling the app or clearing its storage removes its local data. LMChat currently has no chat export or restore feature.
 
+Active replies use an Android foreground service to keep receiving text while the app is in the background or the screen is off. The service holds a wake lock only while replies are active and stops when the last reply ends. Its notification contains no conversation text, server addresses, or API keys.
+
 ## Android backups
 
 LMChat disables Android cloud backup and excludes app data from Android backup and device-transfer rules. Chats, attachments, credentials, and settings are not intended to be transferred by those mechanisms. Earlier versions enabled Android backup; this change does not establish that historical backups have been erased. Independently created device backups and copies made outside the app remain outside its control.

@@ -27,7 +27,9 @@ class AppContainer(context: Context) {
     val scanner: NetworkScanner = NetworkScanner(LmStudioClient.buildScannerClient(), context.applicationContext)
 
     val applicationScope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
-    val chatRepository: ChatRepository = ChatRepository(database, client, applicationScope)
+    val streamingKeepAlive = dev.lmchat.data.service.StreamingKeepAlive(context.applicationContext)
+    val chatRepository: ChatRepository = ChatRepository(database, client, applicationScope,
+        onStreamStart = streamingKeepAlive::acquire, onStreamEnd = streamingKeepAlive::release)
     val serverRepository: ServerRepository = ServerRepository(database)
     val settings: SettingsStore = SettingsStore(context.applicationContext)
 }

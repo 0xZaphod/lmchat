@@ -43,6 +43,8 @@ class ChatRepository(
     private val db: AppDatabase,
     private val client: LmStudioClient,
     private val scope: CoroutineScope,
+    private val onStreamStart: suspend (String) -> Unit = {},
+    private val onStreamEnd: suspend (String) -> Unit = {},
 ) {
 
     private val conversations get() = db.conversationDao()
@@ -59,9 +61,13 @@ class ChatRepository(
 
     private val activeStreams = mutableMapOf<String, ActiveStream>()
 
-    private fun releaseStream(conversationId: String, stream: ActiveStream) {
-        synchronized(activeStreams) {
-            if (activeStreams[conversationId] === stream) activeStreams.remove(conversationId)
+    private suspend fun releaseStream(conversationId: String, stream: ActiveStream) {
+        try {
+            onStreamEnd(conversationId)
+        } finally {
+            synchronized(activeStreams) {
+                if (activeStreams[conversationId] === stream) activeStreams.remove(conversationId)
+            }
         }
     }
 
@@ -197,6 +203,7 @@ class ChatRepository(
         }
         val assistantId = UUID.randomUUID().toString()
         try {
+            onStreamStart(conversation.id)
             val now = System.currentTimeMillis()
 
             // 1. Persist the user message + attachments.
@@ -414,6 +421,11 @@ class ChatRepository(
         val stream = synchronized(activeStreams) { activeStreams[conversationId] } ?: return
         stream.stopRequested.set(true)
         stream.source?.cancel()
+    }
+
+    fun stopAllStreams() {
+        val chats = synchronized(activeStreams) { activeStreams.keys.toList() }
+        chats.forEach(::stopStreaming)
     }
 
     /* ---------------- Server probing ---------------- */

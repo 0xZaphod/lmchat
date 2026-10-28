@@ -29,3 +29,6 @@ local.properties
 *.apk
 *.aab
 *.bundle
+
+# Private backups retained while migrating published release metadata
+/.release-backups/

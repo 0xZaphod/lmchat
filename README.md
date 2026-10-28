@@ -12,7 +12,7 @@ In Settings, scan for a server or enter its address, then choose a model and sta
 
 ## Features
 
-- **Streaming chat** — watch replies arrive as the server generates them
+- **Streaming chat** — watch replies arrive as the server generates them, including while the app is in the background or the screen is off
 - **Markdown replies** — headings, emphasis, lists, quotes, links, tables, and monospace code; select and copy response text
 - **Images** — imports are limited to 10 MiB per file; gallery and camera options appear when the selected model reports vision support or you enable **Allow images for this model** in the attachment menu; images are sent as data-URIs
 - **Documents** — attach PDF, TXT, MD, CSV, JSON, XML, HTML, or source files; text is extracted and inlined into the prompt (8 MiB per file, at most 200 PDF pages, extracted text capped at 120,000 characters)
@@ -28,6 +28,8 @@ Requires **Android 8.0 (API 26) or newer**. Download `LMChat-<version>.apk` from
 The app connects to a server you run separately; it does not run models on the phone.
 
 ### In-app updates
+
+Release numbers now start at **0.1** to reflect the app’s development status. If your installed app shows **1.0.x**, install the latest release APK manually once; those older versions will not detect the new 0.x sequence through the in-app updater.
 
 LMChat checks the latest stable GitHub release when opened. There are no scheduled or background update checks. Settings also offers **Check for updates**. Tap **Update** to download the release APK, then **Install** to open Android’s confirmation screen. Android may first ask you to allow installations from LMChat. Downloads are stored in the app cache; interrupted downloads can be retried.
 

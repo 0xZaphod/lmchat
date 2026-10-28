@@ -25,6 +25,18 @@ GitHub Actions runs unit tests and builds a debug APK on pushes and pull request
 
 The in-app updater requires a higher numeric release version, a higher APK `versionCode`, and the same package name and signing key as the installed app. Publish the signed `LMChat-<versionName>.apk` asset on a stable GitHub release tagged `<versionName>` or `v<versionName>`.
 
+## Version numbering
+
+The release sequence starts at `0.1`. Increase the last component for fixes and polish (`0.1` → `0.1.1`); increase the minor version for new user-facing features and reset the patch component (`0.1.1` → `0.2`). Stay below `1.0` until the app is ready for its first stable release. Keep Android's internal `versionCode` increasing independently, including when renumbering the public version. Historical rebuilds retain their original version codes; new releases must use a higher code.
+
+The original `1.0`–`1.0.10` releases were renumbered to `0.1`–`0.4.5`. Legacy Git tags remain available for old source links. Existing installations displaying `1.0.x` require one manual APK update before the numeric in-app updater can follow the 0.x sequence.
+
+## Release notes
+
+Use [the release-note template](docs/releases/TEMPLATE.md) for both `docs/releases/<version>.md` and the GitHub release body. Keep them identical: one short summary, up to four brief bullets when useful, and the APK download line. A single-fix release can omit the bullets. The GitHub release title is `LMChat <version>`; do not repeat it as a heading in the body.
+
+Describe changes that matter to users. Keep notes short. Omit debug/development installation caveats, build and test reports, device details, signing information, internal implementation details, and repeated license or installation sections. Put contributor validation details in the commit or PR instead. Include a brief data-loss or privacy behavior notice when an update changes those expectations.
+
 ## Release validation
 
 Before uploading an APK, run the unit tests, debug build, connected Android tests, and release build. Verify the actual APK with the Android SDK's `apksigner verify --verbose --print-certs <apk>` and compare its certificate SHA-256 digest with the previous public APK. Checking for `META-INF/*.RSA` or `*.SF` ZIP entries is insufficient: APK v2 signatures live in a separate signing block.

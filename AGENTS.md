@@ -38,4 +38,5 @@ LMChat is a Kotlin Android app built with Jetpack Compose and Material 3. Keep t
 - Never commit API keys, signing credentials, keystores, local SDK paths, private hostnames, or user conversations/screenshots.
 - Keep `keystore.properties` and `local.properties` local. Back up signing material privately.
 - Bump `versionCode` for released updates. The public version is `versionName`; release APKs are `LMChat-<versionName>.apk`.
+- Use `docs/releases/TEMPLATE.md` for public release notes and keep local notes identical to GitHub. Keep them short and user-facing; omit debug-installation caveats and build/test details.
 - Keep documentation focused on current behavior, not machine-specific setup or debugging transcripts.

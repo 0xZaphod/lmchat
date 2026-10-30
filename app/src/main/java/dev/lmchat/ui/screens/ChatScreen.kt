@@ -50,10 +50,10 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AttachFile
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Image
-import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material.icons.outlined.Close
+import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material3.SmallFloatingActionButton
 import androidx.compose.material3.AlertDialog
@@ -412,7 +412,7 @@ fun ChatScreen(
                         MessageBubble(
                             message = message,
                             isScrolling = isScrolling,
-                            onRetry = if (canRetry && !isBusy) ({ viewModel.retryResponse(message.id) }) else null,
+                            onRetry = if (canRetry) ({ viewModel.retryResponse(message.id) }) else null,
                             actionsEnabled = !isBusy,
                             onResend = { resendTarget = message },
                             onEdit = if (message.isUser) ({
@@ -1053,7 +1053,6 @@ private fun MessageBubble(
     onEdit: (() -> Unit)?,
     onDelete: () -> Unit,
 ) {
-    var showActions by remember(message.id) { mutableStateOf(false) }
     val isUser = message.isUser
     val bubbleColor =
         if (isUser) MaterialTheme.colorScheme.primaryContainer
@@ -1156,36 +1155,21 @@ private fun MessageBubble(
                 style = MaterialTheme.typography.labelLarge,
             )
         }
-        Box {
-            IconButton(onClick = { showActions = true }, enabled = actionsEnabled) {
-                Icon(Icons.Default.MoreVert, contentDescription = "Message actions")
-            }
-            DropdownMenu(expanded = showActions && actionsEnabled, onDismissRequest = { showActions = false }) {
-                DropdownMenuItem(text = { Text("Regenerate reply") }, onClick = {
-                    showActions = false
-                    onResend()
-                })
-                if (onEdit != null) {
-                    DropdownMenuItem(text = { Text("Edit and resend") }, onClick = {
-                        showActions = false
-                        onEdit()
-                    })
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            if (onEdit != null) {
+                IconButton(onClick = onEdit, enabled = actionsEnabled) {
+                    Icon(Icons.Outlined.Edit, contentDescription = "Edit and resend", modifier = Modifier.size(18.dp))
                 }
-                DropdownMenuItem(text = { Text("Delete message") }, onClick = {
-                    showActions = false
-                    onDelete()
-                })
             }
-        }
-        if (onRetry != null) {
-            TextButton(onClick = onRetry) {
+            IconButton(onClick = onRetry ?: onResend, enabled = actionsEnabled) {
                 Icon(
                     Icons.Default.Refresh,
-                    contentDescription = null,
+                    contentDescription = if (onRetry != null) "Retry reply" else "Regenerate reply",
                     modifier = Modifier.size(18.dp),
                 )
-                Spacer(Modifier.width(6.dp))
-                Text("Retry")
+            }
+            IconButton(onClick = onDelete, enabled = actionsEnabled) {
+                Icon(Icons.Outlined.Delete, contentDescription = "Delete message", modifier = Modifier.size(18.dp))
             }
         }
     }

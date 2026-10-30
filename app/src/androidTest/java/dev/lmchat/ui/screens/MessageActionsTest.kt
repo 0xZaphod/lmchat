@@ -3,6 +3,8 @@ package dev.lmchat.ui.screens
 import androidx.activity.ComponentActivity
 import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onAllNodesWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -115,20 +117,21 @@ class MessageActionsTest {
         assertTrue(requests.isEmpty())
     }
 
-    @Test fun messageMenuEditsRegeneratesAndDeletes() = withChat { chat, requests ->
+    @Test fun messageIconsEditRegenerateAndDelete() = withChat { chat, requests ->
         val user = insert(chat, "user", "Original prompt", 1)
         insert(chat, "assistant", "Old reply", 2)
         val vm = showChat(chat)
-        compose.onAllNodesWithContentDescription("Message actions")[0].performClick()
-        compose.onNodeWithText("Edit and resend").performClick()
+        compose.onNodeWithContentDescription("Edit and resend").assertIsDisplayed()
+        compose.onAllNodesWithContentDescription("Regenerate reply")[0].assertIsDisplayed()
+        compose.onAllNodesWithContentDescription("Delete message")[0].assertIsDisplayed()
+        compose.onNodeWithContentDescription("Edit and resend").performClick()
         compose.onNode(hasSetTextAction() and androidx.compose.ui.test.hasText("Original prompt")).performTextReplacement("Edited prompt")
         compose.onNodeWithText("Resend").performClick()
         compose.waitUntil(10000) { vm.messages.value.lastOrNull()?.content == "Replacement reply" && !vm.isBusy.value }
         assertEquals(1, requests.size)
         assertTrue(requests.single().contains("Edited prompt"))
         assertFalse(requests.single().contains("Old reply"))
-        compose.onAllNodesWithContentDescription("Message actions")[1].performClick()
-        compose.onNodeWithText("Delete message").performClick()
+        compose.onAllNodesWithContentDescription("Delete message")[1].performClick()
         compose.onNodeWithText("Delete").performClick()
         compose.waitUntil(10000) { vm.messages.value.size == 1 && !vm.isBusy.value }
         assertEquals(user, vm.messages.value.single().id)
